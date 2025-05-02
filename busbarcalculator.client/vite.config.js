@@ -22,6 +22,18 @@ export default defineConfig({
                     });
                 }
             }
+        },
+        // This ensures proper routing for SPA
+        historyApiFallback: true
+    },
+    // Add this to ensure client-side routing works properly in production
+    build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
+        rollupOptions: {
+            output: {
+                manualChunks: undefined
+            }
         }
     }
 })
