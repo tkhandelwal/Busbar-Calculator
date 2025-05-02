@@ -371,7 +371,10 @@ const BusbarForm = ({ onResultsCalculated }) => {
                             <Controller
                                 name="shortCircuitCurrent"
                                 control={control}
-                                rules={{ min: { value: 0, message: 'Must be positive' } }}
+                                rules={{
+                                    required: 'Short Circuit Current is required',
+                                    min: { value: 0, message: 'Must be positive' }
+                                }}
                                 render={({ field }) => (
                                     <TextField
                                         {...field}

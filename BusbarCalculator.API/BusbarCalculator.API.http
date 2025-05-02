@@ -1,4 +1,4 @@
-@BusbarCalculator.Server_HostAddress = http://localhost:5257
+@BusbarCalculator.Server_HostAddress = https://localhost:5257
 
 GET {{BusbarCalculator.Server_HostAddress}}/weatherforecast/
 Accept: application/json

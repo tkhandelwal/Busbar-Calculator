@@ -1,10 +1,10 @@
 // src/components/BusbarResults.jsx
 import React, { useEffect, useMemo } from 'react';
 import {
-    Typography,
     Paper,
-    Grid,
+    Typography,
     Box,
+    Grid,
     Divider,
     List,
     ListItem,
@@ -12,6 +12,9 @@ import {
     Chip,
     Alert
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+
 import { Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -119,18 +122,26 @@ const BusbarResults = ({ results }) => {
             <Divider sx={{ mb: 3 }} />
 
             <Grid container spacing={3}>
+                {/* Basic Results */}
                 <Grid item xs={12} md={6}>
-                    <Typography variant="h6" gutterBottom>
-                        Sizing Requirements
-                    </Typography>
-
-                    <Box sx={{ mb: 2 }}>
-                        <Typography variant="body1">
-                            Required Cross Section Area: <strong>{results.requiredCrossSectionArea.toFixed(2)} mm²</strong>
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Basic Parameters
                         </Typography>
-                        <Typography variant="body1">
-                            Current Density: <strong>{results.currentDensity.toFixed(2)} A/mm²</strong>
-                        </Typography>
+                        <List dense>
+                            <ListItem>
+                                <ListItemText
+                                    primary="Required Cross-Section Area"
+                                    secondary={`${results.requiredCrossSectionArea.toFixed(2)} mm²`}
+                                />
+                            </ListItem>
+                            <ListItem>
+                                <ListItemText
+                                    primary="Current Density"
+                                    secondary={`${results.currentDensity.toFixed(2)} A/mm²`}
+                                />
+                            </ListItem>
+                        </List>
                     </Box>
 
                     <Typography variant="subtitle1" gutterBottom>
