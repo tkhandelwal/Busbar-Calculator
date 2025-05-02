@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState } from 'react';
 import {
     Container, Typography, Box, Paper, Grid, Card, CardContent,
@@ -14,6 +15,7 @@ import BusbarForm from './components/BusbarForm';
 import BusbarVisualization from './components/BusbarVisualization';
 import HeatmapVisualization from './components/HeatmapVisualization';
 import AIRecommendations from './components/AIRecommendations';
+import FemFieldViewer from './components/FemFieldViewer';
 import './App.css';
 
 // Helper function to safely format numbers with toFixed
@@ -361,6 +363,10 @@ function App() {
                                                 3D Visualization
                                             </Typography>
                                             <BusbarVisualization busbarData={busbarData} />
+
+                                            {busbarData?.advancedResults && (
+                                                <FemFieldViewer busbarData={busbarData} />
+                                            )}
 
                                             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                                                 <Button
