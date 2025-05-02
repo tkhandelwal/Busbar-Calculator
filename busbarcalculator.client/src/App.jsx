@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link as RouterLink } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import {
     Container,
@@ -24,9 +24,6 @@ import BusbarVisualization from './components/BusbarVisualization';
 import HeatmapVisualization from './components/HeatmapVisualization';
 import FemVisualizationComponent from './components/FemVisualizationComponent';
 import AIRecommendations from './components/AIRecommendations';
-import './App.css';
-
-// Import CSS
 import './App.css';
 
 // Create a Material-UI theme
@@ -113,7 +110,12 @@ function App() {
                         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
                             Busbar Calculator
                         </Typography>
-                        <Button color="inherit" component={Link} href="https://github.com/yourusername/busbarcalculator" target="_blank">
+                        <Button
+                            color="inherit"
+                            component="a"
+                            href="https://github.com/yourusername/busbarcalculator"
+                            target="_blank"
+                        >
                             GitHub
                         </Button>
                     </Toolbar>
@@ -295,14 +297,7 @@ function App() {
                                                         <Grid item xs={12}>
                                                             <Paper elevation={3} sx={{ p: 3 }}>
                                                                 <Typography variant="h6" gutterBottom>3D Visualization</Typography>
-                                                                <FemVisualizationComponent
-                                                                    femResults={{
-                                                                        width: calculationResults.busbarWidth || 100,
-                                                                        thickness: calculationResults.busbarThickness || 10,
-                                                                        length: calculationResults.busbarLength || 1000,
-                                                                        stressDistribution: calculationResults.advancedResults?.stressValues || [1, 0.7, 0.5, 0.3]
-                                                                    }}
-                                                                />
+                                                                <BusbarVisualization busbarData={calculationResults} />
                                                             </Paper>
                                                         </Grid>
 
@@ -336,7 +331,14 @@ function App() {
                                                         <Typography paragraph>
                                                             Full PDF report with all calculations and design parameters.
                                                         </Typography>
-                                                        <Button variant="contained" color="primary">
+                                                        <Button
+                                                            variant="contained"
+                                                            color="primary"
+                                                            onClick={() => {
+                                                                // In a real implementation, this would generate and download a PDF
+                                                                alert('PDF generation functionality would be implemented here');
+                                                            }}
+                                                        >
                                                             Generate PDF Report
                                                         </Button>
                                                     </Paper>
