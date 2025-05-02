@@ -1,32 +1,42 @@
-// src/App.jsx
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link as RouterLink } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 import {
-    Container,
-    CssBaseline,
-    Box,
-    Paper,
-    Typography,
-    AppBar,
-    Toolbar,
-    Tab,
-    Tabs,
-    Grid,
-    Button,
-    Divider,
-    Link
+    Container, Typography, Box, Paper, Grid, Card, CardContent,
+    Divider, AppBar, Toolbar, IconButton, Tabs, Tab, CircularProgress,
+    Button, Tooltip, List, ListItem, ListItemText
 } from '@mui/material';
-
-// Import components
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import MenuIcon from '@mui/icons-material/Menu';
+import SaveIcon from '@mui/icons-material/Save';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import CalculateIcon from '@mui/icons-material/Calculate';
 import BusbarForm from './components/BusbarForm';
 import BusbarVisualization from './components/BusbarVisualization';
 import HeatmapVisualization from './components/HeatmapVisualization';
-import FemVisualizationComponent from './components/FemVisualizationComponent';
 import AIRecommendations from './components/AIRecommendations';
 import './App.css';
 
-// Create a Material-UI theme
+// Helper function to safely format numbers with toFixed
+const safeToFixed = (value, digits = 2) => {
+    if (value === null || value === undefined || isNaN(value)) {
+        return '0.00';
+    }
+    // Convert to number if it's a string
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    // Check if it's actually a number after conversion
+    return typeof numValue === 'number' ? numValue.toFixed(digits) : '0.00';
+};
+
+// Format key function - convert camelCase to Title Case with spaces
+const formatKey = (key) => {
+    return key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (str) => str.toUpperCase())
+        .replace('FEM', 'FEM')
+        .replace('Fem', 'FEM');
+};
+
+// Main theme
 const theme = createTheme({
     palette: {
         mode: 'light',
@@ -37,329 +47,350 @@ const theme = createTheme({
             main: '#dc004e',
         },
         background: {
-            default: '#f5f5f5'
-        }
+            default: '#f5f5f5',
+        },
     },
     typography: {
-        h4: {
-            fontWeight: 600,
+        h1: {
+            fontSize: '2.5rem',
+            fontWeight: 500,
         },
         h5: {
-            fontWeight: 600,
-        },
-    },
-    components: {
-        MuiCard: {
-            styleOverrides: {
-                root: {
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                    },
-                },
-            },
+            fontWeight: 500,
         },
     },
 });
 
 function App() {
-    const [calculationResults, setCalculationResults] = useState(null);
-    const [currentTab, setCurrentTab] = useState(0);
-
-    // Example data for FEM visualizations
-    const dummyFemData = {
-        temperatureDistribution: Array(10).fill().map(() => Array(10).fill().map(() => Math.random() * 100)),
-        stressDistribution: Array(10).fill().map(() => Array(10).fill().map(() => Math.random() * 80)),
-        width: 100,
-        thickness: 10,
-        length: 1000
-    };
-
-    const handleCalculationResults = (results) => {
-        setCalculationResults(results);
-
-        // Scroll to results section
-        const resultsElement = document.getElementById('results-section');
-        if (resultsElement) {
-            resultsElement.scrollIntoView({ behavior: 'smooth' });
-        }
-    };
+    const [busbarData, setBusbarData] = useState(null);
+    const [activeTab, setActiveTab] = useState(0);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     const handleTabChange = (event, newValue) => {
-        setCurrentTab(newValue);
+        setActiveTab(newValue);
     };
 
-    const formatValue = (value, unit) => {
-        if (typeof value === 'number') {
-            // For very large or very small numbers, use scientific notation
-            if (value > 1000000 || value < 0.001) {
-                return `${value.toExponential(2)} ${unit}`;
-            }
-            return `${value.toFixed(2)} ${unit}`;
-        }
-        return `${value} ${unit}`;
+    const handleResultsCalculated = (results) => {
+        console.log('Results received in App:', results);
+        setBusbarData(results);
+        // Set to Results tab when new results are calculated
+        setActiveTab(1);
     };
+
+    const handleGeneratePdf = async () => {
+        if (!busbarData) return;
+
+        setIsGeneratingPdf(true);
+        try {
+            // In a real implementation, this would call the API
+            // For now, we'll just simulate a delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            console.log('PDF generated');
+            // In a real implementation, this would trigger a download
+            alert('PDF Report Generated');
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
+    // Check if distribution data exists in advanced results
+    const hasDistributionData = busbarData?.advancedResults && (
+        busbarData.advancedResults.ForceDistribution ||
+        busbarData.advancedResults.StressDistribution ||
+        busbarData.advancedResults.TemperatureDistribution
+    );
 
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <Router>
-                <AppBar position="static" elevation={2}>
-                    <Toolbar>
-                        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                            Busbar Calculator
-                        </Typography>
-                        <Button
-                            color="inherit"
-                            component="a"
-                            href="https://github.com/yourusername/busbarcalculator"
-                            target="_blank"
-                        >
-                            GitHub
-                        </Button>
-                    </Toolbar>
-                </AppBar>
+            <AppBar position="static">
+                <Toolbar>
+                    <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }}>
+                        <MenuIcon />
+                    </IconButton>
+                    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                        Busbar Calculator
+                    </Typography>
+                    {busbarData && (
+                        <>
+                            <Tooltip title="Save Configuration">
+                                <IconButton color="inherit">
+                                    <SaveIcon />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Generate PDF Report">
+                                <IconButton
+                                    color="inherit"
+                                    onClick={handleGeneratePdf}
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? <CircularProgress size={24} color="inherit" /> : <PictureAsPdfIcon />}
+                                </IconButton>
+                            </Tooltip>
+                        </>
+                    )}
+                </Toolbar>
+            </AppBar>
 
-                <Container maxWidth="lg">
-                    <Box sx={{ my: 4 }}>
-                        <Routes>
-                            <Route path="/" element={<Navigate to="/calculator" replace />} />
-                            <Route
-                                path="/calculator"
-                                element={
-                                    <>
-                                        <Typography variant="h4" component="h1" gutterBottom>
-                                            Electrical Busbar Design Calculator
+            <Container maxWidth="lg">
+                <Box sx={{ my: 4 }}>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={activeTab} onChange={handleTabChange} aria-label="busbar calculator tabs">
+                            <Tab label="Calculator" icon={<CalculateIcon />} iconPosition="start" />
+                            {busbarData && <Tab label="Results" />}
+                        </Tabs>
+                    </Box>
+
+                    <Box role="tabpanel" hidden={activeTab !== 0} sx={{ py: 3 }}>
+                        {activeTab === 0 && (
+                            <>
+                                <Typography variant="h4" component="h1" gutterBottom align="center">
+                                    Busbar Design & Analysis
+                                </Typography>
+                                <Typography variant="body1" align="center" color="textSecondary" paragraph>
+                                    Calculate and visualize busbar parameters for electrical design. Enter your specifications below or select from standard configurations.
+                                </Typography>
+                                <BusbarForm onResultsCalculated={handleResultsCalculated} />
+                            </>
+                        )}
+                    </Box>
+
+                    <Box role="tabpanel" hidden={activeTab !== 1} sx={{ py: 3 }}>
+                        {activeTab === 1 && busbarData && (
+                            <Grid container spacing={4}>
+                                <Grid item xs={12} md={8}>
+                                    <Paper elevation={3} sx={{ p: 3 }}>
+                                        <Typography variant="h5" component="h2" gutterBottom>
+                                            Calculation Results
                                         </Typography>
-                                        <Typography paragraph color="text.secondary">
-                                            Complete design tool for electrical busbars with advanced calculations, safety analysis, and 3D visualization.
-                                        </Typography>
+                                        <Divider sx={{ mb: 3 }} />
 
-                                        <BusbarForm onResultsCalculated={handleCalculationResults} />
-
-                                        {calculationResults && (
-                                            <Box id="results-section" sx={{ mt: 6 }}>
-                                                <Typography variant="h4" component="h2" gutterBottom>
-                                                    Calculation Results
-                                                </Typography>
-
-                                                <Tabs
-                                                    value={currentTab}
-                                                    onChange={handleTabChange}
-                                                    indicatorColor="primary"
-                                                    textColor="primary"
-                                                    variant="fullWidth"
-                                                    sx={{ mb: 3 }}
-                                                >
-                                                    <Tab label="Summary" />
-                                                    <Tab label="Visualization" />
-                                                    <Tab label="Recommendations" />
-                                                    <Tab label="Report" />
-                                                </Tabs>
-
-                                                {currentTab === 0 && (
-                                                    <Grid container spacing={3}>
-                                                        <Grid item xs={12} md={6}>
-                                                            <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-                                                                <Typography variant="h6" gutterBottom>Main Parameters</Typography>
-                                                                <Grid container spacing={2}>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Required Cross-Section Area
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.requiredCrossSectionArea, 'mm²')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Current Density
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.currentDensity, 'A/mm²')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Temperature Rise
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.temperatureRise, '°C')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Max Allowable Temperature
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.maxAllowableTemperature, '°C')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Mechanical Stress
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.mechanicalStress / 1e6, 'MPa')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Max Allowable Stress
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.maxAllowableMechanicalStress / 1e6, 'MPa')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Short Circuit Force
-                                                                        </Typography>
-                                                                        <Typography variant="body1">
-                                                                            {formatValue(calculationResults.shortCircuitForce, 'N')}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    <Grid item xs={6}>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            Design Status
-                                                                        </Typography>
-                                                                        <Typography
-                                                                            variant="body1"
-                                                                            sx={{
-                                                                                color: calculationResults.isSizingSufficient ? 'success.main' : 'error.main',
-                                                                                fontWeight: 'bold'
-                                                                            }}
-                                                                        >
-                                                                            {calculationResults.isSizingSufficient ? 'Acceptable' : 'Insufficient'}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                </Grid>
-                                                            </Paper>
-                                                        </Grid>
-
-                                                        <Grid item xs={12} md={6}>
-                                                            <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-                                                                <Typography variant="h6" gutterBottom>Recommended Standard Sizes</Typography>
-                                                                <Box sx={{ mt: 2 }}>
-                                                                    {calculationResults.recommendedStandardSizes.map((size, index) => (
-                                                                        <Box key={index} sx={{
-                                                                            p: 1,
-                                                                            mb: 1,
-                                                                            border: '1px solid',
-                                                                            borderColor: 'primary.light',
-                                                                            borderRadius: 1,
-                                                                            backgroundColor: index === 0 ? 'rgba(25, 118, 210, 0.1)' : 'transparent'
-                                                                        }}>
-                                                                            <Typography variant="body1">
-                                                                                {size}
-                                                                                {index === 0 && (
-                                                                                    <Typography
-                                                                                        component="span"
-                                                                                        variant="body2"
-                                                                                        color="primary.main"
-                                                                                        sx={{ ml: 1 }}
-                                                                                    >
-                                                                                        (Recommended)
-                                                                                    </Typography>
-                                                                                )}
-                                                                            </Typography>
-                                                                        </Box>
-                                                                    ))}
-                                                                </Box>
-                                                            </Paper>
-                                                        </Grid>
-
-                                                        {calculationResults.advancedResults && (
-                                                            <Grid item xs={12}>
-                                                                <Paper elevation={3} sx={{ p: 3 }}>
-                                                                    <Typography variant="h6" gutterBottom>Advanced Analysis</Typography>
-                                                                    <Grid container spacing={2}>
-                                                                        {Object.entries(calculationResults.advancedResults).map(([key, value]) => (
-                                                                            <Grid item xs={6} md={3} key={key}>
-                                                                                <Typography variant="body2" color="text.secondary">
-                                                                                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                                                                                </Typography>
-                                                                                <Typography variant="body1">
-                                                                                    {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value.toFixed(2)}
-                                                                                </Typography>
-                                                                            </Grid>
-                                                                        ))}
-                                                                    </Grid>
-                                                                </Paper>
-                                                            </Grid>
-                                                        )}
-                                                    </Grid>
-                                                )}
-
-                                                {currentTab === 1 && (
-                                                    <Grid container spacing={3}>
-                                                        <Grid item xs={12}>
-                                                            <Paper elevation={3} sx={{ p: 3 }}>
-                                                                <Typography variant="h6" gutterBottom>3D Visualization</Typography>
-                                                                <BusbarVisualization busbarData={calculationResults} />
-                                                            </Paper>
-                                                        </Grid>
-
-                                                        <Grid item xs={12} md={6}>
-                                                            <Paper elevation={3} sx={{ p: 3 }}>
-                                                                <HeatmapVisualization
-                                                                    distributionData={dummyFemData.temperatureDistribution}
-                                                                    title="Temperature Distribution"
-                                                                />
-                                                            </Paper>
-                                                        </Grid>
-
-                                                        <Grid item xs={12} md={6}>
-                                                            <Paper elevation={3} sx={{ p: 3 }}>
-                                                                <HeatmapVisualization
-                                                                    distributionData={dummyFemData.stressDistribution}
-                                                                    title="Mechanical Stress Distribution"
-                                                                />
-                                                            </Paper>
-                                                        </Grid>
-                                                    </Grid>
-                                                )}
-
-                                                {currentTab === 2 && (
-                                                    <AIRecommendations busbarData={calculationResults} />
-                                                )}
-
-                                                {currentTab === 3 && (
-                                                    <Paper elevation={3} sx={{ p: 3 }}>
-                                                        <Typography variant="h6" gutterBottom>Technical Report</Typography>
-                                                        <Typography paragraph>
-                                                            Full PDF report with all calculations and design parameters.
+                                        <Grid container spacing={3}>
+                                            <Grid item xs={12} md={6}>
+                                                <Card>
+                                                    <CardContent>
+                                                        <Typography variant="h6" gutterBottom>
+                                                            Electrical Parameters
                                                         </Typography>
-                                                        <Button
-                                                            variant="contained"
-                                                            color="primary"
-                                                            onClick={() => {
-                                                                // In a real implementation, this would generate and download a PDF
-                                                                alert('PDF generation functionality would be implemented here');
-                                                            }}
-                                                        >
-                                                            Generate PDF Report
-                                                        </Button>
-                                                    </Paper>
-                                                )}
+                                                        <List dense>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Required Cross-Section Area"
+                                                                    secondary={`${safeToFixed(busbarData.requiredCrossSectionArea)} mm²`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Current Density"
+                                                                    secondary={`${safeToFixed(busbarData.currentDensity)} A/mm²`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Temperature Rise"
+                                                                    secondary={`${safeToFixed(busbarData.temperatureRise)} °C`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Max Allowable Temperature"
+                                                                    secondary={`${safeToFixed(busbarData.maxAllowableTemperature)} °C`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Sizing Status"
+                                                                    secondary={busbarData.isSizingSufficient ? "Sufficient" : "Insufficient"}
+                                                                    secondaryTypographyProps={{
+                                                                        color: busbarData.isSizingSufficient ? "success.main" : "error.main",
+                                                                        fontWeight: 'bold'
+                                                                    }}
+                                                                />
+                                                            </ListItem>
+                                                        </List>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+
+                                            <Grid item xs={12} md={6}>
+                                                <Card>
+                                                    <CardContent>
+                                                        <Typography variant="h6" gutterBottom>
+                                                            Mechanical Parameters
+                                                        </Typography>
+                                                        <List dense>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Short Circuit Force"
+                                                                    secondary={`${safeToFixed(busbarData.shortCircuitForce)} N`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Mechanical Stress"
+                                                                    secondary={`${safeToFixed(busbarData.mechanicalStress / 1e6)} MPa`}
+                                                                />
+                                                            </ListItem>
+                                                            <ListItem>
+                                                                <ListItemText
+                                                                    primary="Max Allowable Stress"
+                                                                    secondary={`${safeToFixed(busbarData.maxAllowableMechanicalStress / 1e6)} MPa`}
+                                                                />
+                                                            </ListItem>
+                                                        </List>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+
+                                            <Grid item xs={12}>
+                                                <Card>
+                                                    <CardContent>
+                                                        <Typography variant="h6" gutterBottom>
+                                                            Recommended Standard Sizes
+                                                        </Typography>
+                                                        <Grid container spacing={2}>
+                                                            {busbarData.recommendedStandardSizes && busbarData.recommendedStandardSizes.map((size, index) => (
+                                                                <Grid item key={index}>
+                                                                    <Paper
+                                                                        elevation={2}
+                                                                        sx={{
+                                                                            p: 2,
+                                                                            bgcolor: index === 0 ? 'primary.light' : 'background.paper',
+                                                                            color: index === 0 ? 'primary.contrastText' : 'text.primary'
+                                                                        }}
+                                                                    >
+                                                                        {size}
+                                                                        {index === 0 && (
+                                                                            <Typography variant="caption" display="block">
+                                                                                (Best match)
+                                                                            </Typography>
+                                                                        )}
+                                                                    </Paper>
+                                                                </Grid>
+                                                            ))}
+                                                        </Grid>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+
+                                            {busbarData.advancedResults && (
+                                                <Grid item xs={12}>
+                                                    <Card>
+                                                        <CardContent>
+                                                            <Typography variant="h6" gutterBottom>
+                                                                Advanced Analysis Results
+                                                            </Typography>
+
+                                                            {/* Display non-distribution advanced results */}
+                                                            <Grid container spacing={2}>
+                                                                {Object.entries(busbarData.advancedResults).map(([key, value]) => {
+                                                                    // Skip distribution arrays from this display
+                                                                    if (key.includes('Distribution')) {
+                                                                        return null;
+                                                                    }
+
+                                                                    return (
+                                                                        <Grid item xs={12} sm={6} lg={4} key={key}>
+                                                                            <Typography variant="body2" color="textSecondary">
+                                                                                {formatKey(key)}:
+                                                                            </Typography>
+                                                                            <Typography variant="body1">
+                                                                                {typeof value === 'boolean'
+                                                                                    ? (value ? 'Yes' : 'No')
+                                                                                    : typeof value === 'number'
+                                                                                        ? safeToFixed(value)
+                                                                                        : String(value)}
+                                                                            </Typography>
+                                                                        </Grid>
+                                                                    );
+                                                                })}
+                                                            </Grid>
+
+                                                            {/* Distribution Visualizations */}
+                                                            {hasDistributionData && (
+                                                                <Box mt={4}>
+                                                                    <Typography variant="h6" gutterBottom>
+                                                                        Distribution Analysis
+                                                                    </Typography>
+                                                                    <Grid container spacing={3}>
+                                                                        {busbarData.advancedResults.ForceDistribution && (
+                                                                            <Grid item xs={12}>
+                                                                                <HeatmapVisualization
+                                                                                    distributionData={busbarData.advancedResults.ForceDistribution}
+                                                                                    width={700}
+                                                                                    height={250}
+                                                                                    title="Force Distribution (N)"
+                                                                                />
+                                                                            </Grid>
+                                                                        )}
+
+                                                                        {busbarData.advancedResults.StressDistribution && (
+                                                                            <Grid item xs={12}>
+                                                                                <HeatmapVisualization
+                                                                                    distributionData={busbarData.advancedResults.StressDistribution}
+                                                                                    width={700}
+                                                                                    height={250}
+                                                                                    title="Stress Distribution (MPa)"
+                                                                                />
+                                                                            </Grid>
+                                                                        )}
+
+                                                                        {busbarData.advancedResults.TemperatureDistribution && (
+                                                                            <Grid item xs={12}>
+                                                                                <HeatmapVisualization
+                                                                                    distributionData={busbarData.advancedResults.TemperatureDistribution}
+                                                                                    width={700}
+                                                                                    height={250}
+                                                                                    title="Temperature Distribution (°C)"
+                                                                                />
+                                                                            </Grid>
+                                                                        )}
+                                                                    </Grid>
+                                                                </Box>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                </Grid>
+                                            )}
+                                        </Grid>
+
+                                        <Box sx={{ mt: 4 }}>
+                                            <Typography variant="h5" gutterBottom>
+                                                3D Visualization
+                                            </Typography>
+                                            <BusbarVisualization busbarData={busbarData} />
+
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                                                <Button
+                                                    variant="outlined"
+                                                    onClick={() => setActiveTab(0)}
+                                                    sx={{ mr: 2 }}
+                                                >
+                                                    Back to Calculator
+                                                </Button>
+                                                <Button
+                                                    variant="contained"
+                                                    onClick={handleGeneratePdf}
+                                                    startIcon={isGeneratingPdf ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
+                                                    disabled={isGeneratingPdf}
+                                                >
+                                                    {isGeneratingPdf ? 'Generating...' : 'Generate PDF Report'}
+                                                </Button>
                                             </Box>
-                                        )}
-                                    </>
-                                }
-                            />
-                        </Routes>
-                    </Box>
+                                        </Box>
+                                    </Paper>
+                                </Grid>
 
-                    <Divider sx={{ my: 6 }} />
-
-                    <Box component="footer" sx={{ py: 3 }}>
-                        <Typography variant="body2" color="text.secondary" align="center">
-                            © {new Date().getFullYear()} Busbar Calculator. All rights reserved.
-                        </Typography>
+                                <Grid item xs={12} md={4}>
+                                    <AIRecommendations busbarData={busbarData} />
+                                </Grid>
+                            </Grid>
+                        )}
                     </Box>
-                </Container>
-            </Router>
+                </Box>
+            </Container>
         </ThemeProvider>
     );
 }

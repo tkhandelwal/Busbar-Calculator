@@ -7,10 +7,41 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
     useEffect(() => {
         if (!distributionData || !canvasRef.current) return;
 
+        // Process distribution data - handle both string and array formats
+        let processedData;
+
+        if (typeof distributionData === 'string') {
+            // If data is a comma-separated string, convert to array of numbers
+            processedData = distributionData.split(',').map(Number);
+        } else if (Array.isArray(distributionData)) {
+            // If already an array, use it directly
+            processedData = distributionData;
+        } else {
+            console.error('Invalid distribution data format');
+            return;
+        }
+
+        // Reshape to 2D array if it's a flat array
+        const gridSize = Math.ceil(Math.sqrt(processedData.length));
+        const grid = [];
+
+        for (let i = 0; i < gridSize; i++) {
+            const row = [];
+            for (let j = 0; j < gridSize; j++) {
+                const index = i * gridSize + j;
+                row.push(index < processedData.length ? processedData[index] : 0);
+            }
+            grid.push(row);
+        }
+
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-        const rows = distributionData.length;
-        const cols = distributionData[0].length;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const rows = grid.length;
+        const cols = grid[0].length;
 
         // Find min and max values for normalization
         let min = Number.MAX_VALUE;
@@ -18,19 +49,24 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
 
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
-                min = Math.min(min, distributionData[i][j]);
-                max = Math.max(max, distributionData[i][j]);
+                min = Math.min(min, grid[i][j]);
+                max = Math.max(max, grid[i][j]);
             }
         }
 
+        // If all values are the same, adjust to avoid division by zero
+        if (min === max) {
+            max = min + 1;
+        }
+
         // Cell dimensions
-        const cellWidth = canvas.width / cols;
-        const cellHeight = canvas.height / rows;
+        const cellWidth = (canvas.width) / cols;
+        const cellHeight = (canvas.height - 30) / rows; // Leave space for legend
 
         // Draw heatmap
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
-                const value = distributionData[i][j];
+                const value = grid[i][j];
                 const normalizedValue = (value - min) / (max - min);
 
                 // Generate color (blue to red gradient)
@@ -40,6 +76,18 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
 
                 ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 ctx.fillRect(j * cellWidth, i * cellHeight, cellWidth, cellHeight);
+
+                // Add value text for larger cells
+                if (cellWidth > 30 && cellHeight > 20) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(
+                        value.toFixed(2),
+                        j * cellWidth + cellWidth / 2,
+                        i * cellHeight + cellHeight / 2
+                    );
+                }
             }
         }
 
@@ -58,11 +106,16 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
         // Legend labels
         ctx.fillStyle = 'white';
         ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
         ctx.fillText(min.toFixed(2), 5, legendY + 15);
-        ctx.fillText(max.toFixed(2), canvas.width - 50, legendY + 15);
-        ctx.fillText(title, canvas.width / 2 - 50, legendY + 15);
 
-    }, [distributionData, title]);
+        ctx.textAlign = 'right';
+        ctx.fillText(max.toFixed(2), canvas.width - 5, legendY + 15);
+
+        ctx.textAlign = 'center';
+        ctx.fillText(title, canvas.width / 2, legendY + 15);
+
+    }, [distributionData, title, width, height]);
 
     return (
         <div className="heatmap-container" style={{ marginBottom: '20px' }}>
@@ -70,8 +123,8 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
             <canvas
                 ref={canvasRef}
                 width={width || 400}
-                height={height || 400}
-                style={{ border: '1px solid #ccc' }}
+                height={height || 300}
+                style={{ border: '1px solid #ccc', borderRadius: '4px' }}
             />
         </div>
     );
