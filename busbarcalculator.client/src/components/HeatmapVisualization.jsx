@@ -1,4 +1,4 @@
-// HeatmapVisualization.jsx
+// busbarcalculator.client/src/components/HeatmapVisualization.jsx
 import React, { useEffect, useRef } from 'react';
 
 const HeatmapVisualization = ({ distributionData, width, height, title }) => {
@@ -7,7 +7,7 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
     useEffect(() => {
         if (!distributionData || !canvasRef.current) return;
 
-        // Process distribution data - handle both string and array formats
+        // Process distribution data - handle both array and object formats
         let processedData;
 
         if (typeof distributionData === 'string') {
@@ -16,20 +16,31 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
         } else if (Array.isArray(distributionData)) {
             // If already an array, use it directly
             processedData = distributionData;
+        } else if (distributionData instanceof Object) {
+            // If it's a nested array or object, flatten it
+            processedData = Object.values(distributionData).flat();
         } else {
-            console.error('Invalid distribution data format');
+            console.error('Invalid distribution data format:', distributionData);
             return;
         }
 
+        // Filter out any extreme outliers
+        const sortedValues = [...processedData].sort((a, b) => a - b);
+        const q1Index = Math.floor(sortedValues.length * 0.1);
+        const q3Index = Math.floor(sortedValues.length * 0.9);
+        const filteredData = processedData.map(val =>
+            Math.max(sortedValues[q1Index], Math.min(val, sortedValues[q3Index]))
+        );
+
         // Reshape to 2D array if it's a flat array
-        const gridSize = Math.ceil(Math.sqrt(processedData.length));
+        const gridSize = Math.ceil(Math.sqrt(filteredData.length));
         const grid = [];
 
         for (let i = 0; i < gridSize; i++) {
             const row = [];
             for (let j = 0; j < gridSize; j++) {
                 const index = i * gridSize + j;
-                row.push(index < processedData.length ? processedData[index] : 0);
+                row.push(index < filteredData.length ? filteredData[index] : 0);
             }
             grid.push(row);
         }
@@ -49,18 +60,21 @@ const HeatmapVisualization = ({ distributionData, width, height, title }) => {
 
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
-                min = Math.min(min, grid[i][j]);
+                if (grid[i][j] > 0) { // Ignore zeros when finding min
+                    min = Math.min(min, grid[i][j]);
+                }
                 max = Math.max(max, grid[i][j]);
             }
         }
 
-        // If all values are the same, adjust to avoid division by zero
-        if (min === max) {
-            max = min + 1;
+        // If all values are the same or min is still MAX_VALUE, adjust to avoid division by zero
+        if (min === max || min === Number.MAX_VALUE) {
+            min = max > 0 ? max * 0.9 : 0;
+            max = max > 0 ? max * 1.1 : 1;
         }
 
         // Cell dimensions
-        const cellWidth = (canvas.width) / cols;
+        const cellWidth = canvas.width / cols;
         const cellHeight = (canvas.height - 30) / rows; // Leave space for legend
 
         // Draw heatmap
