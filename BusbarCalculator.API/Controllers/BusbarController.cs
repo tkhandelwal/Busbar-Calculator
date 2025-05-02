@@ -13,11 +13,16 @@ namespace BusbarCalculator.API.Controllers
     {
         private readonly BusbarCalculationService _calculationService;
         private readonly SampleDataService _sampleDataService;
+        private readonly ILicenseService _licenseService;
 
-        public BusbarController(BusbarCalculationService calculationService, SampleDataService sampleDataService)
+        public BusbarController(
+            BusbarCalculationService calculationService,
+            SampleDataService sampleDataService,
+            ILicenseService licenseService)
         {
             _calculationService = calculationService;
             _sampleDataService = sampleDataService;
+            _licenseService = licenseService;
         }
 
         [HttpPost("calculate")]
@@ -68,7 +73,6 @@ namespace BusbarCalculator.API.Controllers
             return Ok(new List<string> { "LV", "MV", "HV" });
         }
 
-        // Add to BusbarController
         [HttpPost("visualize")]
         [Authorize]
         public async Task<ActionResult<BusbarVisualizationData>> GetVisualizationData(BusbarInput input)
