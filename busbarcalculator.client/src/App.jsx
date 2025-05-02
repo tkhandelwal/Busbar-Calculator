@@ -217,10 +217,28 @@ function App() {
                             </Typography>
 
                             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                <Button variant="contained" color="primary" href="#calculator">
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => {
+                                        // Scroll to calculator section instead of changing URL
+                                        document.getElementById('calculator').scrollIntoView({ behavior: 'smooth' });
+                                        // Or use state management to show the calculator section
+                                        // setActiveSection('calculator');
+                                    }}
+                                >
                                     Start Calculating
                                 </Button>
-                                <Button variant="outlined" color="primary" href="#standard-configs">
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() => {
+                                        // Scroll to standard configs section
+                                        document.getElementById('standard-configs').scrollIntoView({ behavior: 'smooth' });
+                                        // Or use state management
+                                        // setActiveSection('standard-configs');
+                                    }}
+                                >
                                     View Standard Configurations
                                 </Button>
                                 {results && (

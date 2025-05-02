@@ -73,7 +73,7 @@ namespace BusbarCalculator.API.Controllers
         }
 
         [HttpGet("standard-configs")]
-        public ActionResult<IEnumerable<StandardBusbarConfig>> GetStandardConfigs(string voltageLevel = null)
+        public ActionResult<IEnumerable<StandardBusbarConfig>> GetStandardConfigs(string? voltageLevel = null)
         {
             _logger.LogInformation("Fetching standard configurations for voltage level: {VoltageLevel}",
                 voltageLevel ?? "All");
@@ -180,7 +180,7 @@ namespace BusbarCalculator.API.Controllers
         public bool IsTemperatureSafe { get; set; }
         public bool IsStressSafe { get; set; }
         public bool IsCurrentDensitySafe { get; set; }
-        public string OverallSafetyStatus { get; set; }
-        public List<string> Recommendations { get; set; }
+        public string OverallSafetyStatus { get; set; } = "Unknown"; // Initialize with a default value
+        public List<string> Recommendations { get; set; } = new List<string>();
     }
 }

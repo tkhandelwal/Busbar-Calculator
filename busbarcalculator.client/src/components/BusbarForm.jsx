@@ -108,15 +108,30 @@ const BusbarForm = ({ onResultsCalculated }) => {
     const onSubmit = async (data) => {
         setIsLoading(true);
         try {
+            // Prevent any default actions
+            event.preventDefault && event.preventDefault();
+
+            console.log('Form submitted with data:', data);
             const results = await calculateBusbar(data);
-            onResultsCalculated(results);
+            console.log('Received results:', results);
+
+            if (typeof onResultsCalculated === 'function') {
+                onResultsCalculated(results);
+            } else {
+                console.error('onResultsCalculated is not a function', onResultsCalculated);
+            }
         } catch (error) {
-            console.error('Error submitting form:', error);
-            // Handle error (show error message)
+            console.error('Error calculating busbar:', error);
+            // Add error handling here - show an error message to the user
         } finally {
             setIsLoading(false);
         }
+
+        // Return false to prevent any default form submission
+        return false;
     };
+
+
 
     return (
         <>
@@ -187,7 +202,9 @@ const BusbarForm = ({ onResultsCalculated }) => {
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
 
-                <form onSubmit={handleSubmit(onSubmit)}>
+                <form id="busbarForm" onSubmit={handleSubmit(onSubmit)} action="javascript:void(0);">
+
+
                     <Grid container spacing={3}>
                         {/* Basic Parameters */}
                         <Grid item xs={12} md={4}>
@@ -473,6 +490,10 @@ const BusbarForm = ({ onResultsCalculated }) => {
                                     color="primary"
                                     disabled={isLoading}
                                     startIcon={isLoading ? <CircularProgress size={20} /> : null}
+                                    onClick={(e) => {
+                                        e.preventDefault(); // Prevent any default action
+                                        handleSubmit(onSubmit)(); // Manually trigger form submission
+                                    }}
                                 >
                                     {isLoading ? 'Calculating...' : 'Calculate'}
                                 </Button>

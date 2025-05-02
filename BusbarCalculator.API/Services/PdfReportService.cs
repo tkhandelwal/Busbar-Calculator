@@ -15,12 +15,13 @@ namespace BusbarCalculator.API.Services
             _logger = logger;
         }
 
+        // PdfReportService.cs - Fix for CS1674 error
         public Task<byte[]> GenerateBusbarReport(BusbarResult result)
         {
             _logger.LogInformation("Generating busbar calculation report");
 
             return Task.Run(() => {
-                using Document document = Document.Create(container =>
+                var document = QuestPDF.Fluent.Document.Create(container =>
                 {
                     container.Page(page =>
                     {
