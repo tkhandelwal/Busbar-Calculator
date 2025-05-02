@@ -155,7 +155,7 @@ namespace BusbarCalculator.API.Services
             return _standardConfigs.Where(c => c.VoltageLevel.Equals(voltageLevel, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
-        public StandardBusbarConfig GetById(string id)
+        public StandardBusbarConfig? GetById(string id)
         {
             return _standardConfigs.FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
         }

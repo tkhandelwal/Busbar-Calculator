@@ -35,16 +35,16 @@ namespace BusbarCalculator.API.Models
     // New model for standard busbar configurations
     public class StandardBusbarConfig
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string VoltageLevel { get; set; } // "LV", "MV", "HV"
+        public required string Id { get; set; }
+        public required string Name { get; set; }
+        public required string VoltageLevel { get; set; } // "LV", "MV", "HV"
         public double Voltage { get; set; } // in kV
         public double Current { get; set; } // in A
-        public string Material { get; set; }
+        public required string Material { get; set; }
         public double Width { get; set; } // in mm
         public double Thickness { get; set; } // in mm
         public double ShortCircuitCurrent { get; set; } // in kA
         public double PhaseDistance { get; set; } // in mm
-        public string Description { get; set; }
+        public required string Description { get; set; }
     }
 }

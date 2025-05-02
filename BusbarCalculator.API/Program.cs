@@ -74,7 +74,7 @@ else
 app.UseCors("AllowReactApp");
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+// app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();
 
