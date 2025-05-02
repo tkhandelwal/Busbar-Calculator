@@ -1,137 +1,106 @@
-// Program.cs
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using BusbarCalculator.API.Data;
-using BusbarCalculator.API.Models;
+// BusbarCalculator.API/Program.cs
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using BusbarCalculator.API.Services;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 // Add services to the container
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// Configure database
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Configure Identity
-builder.Services.AddIdentity<AppUser, IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
-
-// Configure authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.SaveToken = true;
-    options.RequireHttpsMetadata = false;
-    options.TokenValidationParameters = new TokenValidationParameters
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
+        // Handle object cycles and references properly in JSON serialization
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        // Enable case-sensitive property name matching (default behavior)
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = false;
+    });
 
-// Register application services
-builder.Services.AddScoped<BusbarCalculationService>();
-builder.Services.AddScoped<SampleDataService>();
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<ILicenseService, LicenseService>();
-builder.Services.AddScoped<ProjectService>();
-builder.Services.AddScoped<ReportService>();
-builder.Services.AddScoped<FemAnalysisService>(); // Optional
-
-// CORS policy
+// Configure CORS for development
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowReactApp", policy =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Register custom services - using AddScoped instead of AddSingleton for testing
+builder.Services.AddScoped<BusbarCalculationService>();
+builder.Services.AddScoped<SampleDataService>();
+builder.Services.AddScoped<FemAnalysisService>();
+
 var app = builder.Build();
+
+// Add middleware for request logging in development
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Request: {Method} {Path}", context.Request.Method, context.Request.Path);
+        await next();
+    });
+}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/error");
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseStaticFiles();
 
-app.UseAuthentication();
+// Enable CORS
+app.UseCors("AllowReactApp");
+
+app.UseRouting();
 app.UseAuthorization();
 
+// Map API controllers
 app.MapControllers();
 
-// Seed database
+// Add a default redirect to Swagger when accessing the root URL
+app.MapGet("/", () => Results.Redirect("/swagger"));
+
+// Verify that services are properly registered and can be resolved
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        var userManager = services.GetRequiredService<UserManager<AppUser>>();
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
-        // Ensure database is created
-        context.Database.EnsureCreated();
-
-        // Seed roles
-        if (!await roleManager.RoleExistsAsync("Admin"))
-        {
-            await roleManager.CreateAsync(new IdentityRole("Admin"));
-        }
-        if (!await roleManager.RoleExistsAsync("Basic"))
-        {
-            await roleManager.CreateAsync(new IdentityRole("Basic"));
-        }
-        if (!await roleManager.RoleExistsAsync("Premium"))
-        {
-            await roleManager.CreateAsync(new IdentityRole("Premium"));
-        }
-
-        // Seed admin user
-        var adminUser = await userManager.FindByEmailAsync("admin@example.com");
-        if (adminUser == null)
-        {
-            adminUser = new AppUser
-            {
-                UserName = "admin@example.com",
-                Email = "admin@example.com",
-                Name = "Admin User",
-                CreatedDate = DateTime.UtcNow
-            };
-
-            await userManager.CreateAsync(adminUser, "Admin123!");
-            await userManager.AddToRoleAsync(adminUser, "Admin");
-        }
+        var sampleDataService = services.GetRequiredService<SampleDataService>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        var configs = sampleDataService.GetAll();
+        logger.LogInformation("SampleDataService loaded with {Count} configurations", configs.Count);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "An error occurred while retrieving the SampleDataService");
     }
 }
 
+// Run the app
 app.Run();

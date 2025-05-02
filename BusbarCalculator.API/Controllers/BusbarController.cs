@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using BusbarCalculator.API.Models;
 using BusbarCalculator.API.Services;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace BusbarCalculator.API.Controllers
 {
@@ -13,16 +11,11 @@ namespace BusbarCalculator.API.Controllers
     {
         private readonly BusbarCalculationService _calculationService;
         private readonly SampleDataService _sampleDataService;
-        private readonly ILicenseService _licenseService;
 
-        public BusbarController(
-            BusbarCalculationService calculationService,
-            SampleDataService sampleDataService,
-            ILicenseService licenseService)
+        public BusbarController(BusbarCalculationService calculationService, SampleDataService sampleDataService)
         {
             _calculationService = calculationService;
             _sampleDataService = sampleDataService;
-            _licenseService = licenseService;
         }
 
         [HttpPost("calculate")]
@@ -71,28 +64,6 @@ namespace BusbarCalculator.API.Controllers
         public ActionResult<IEnumerable<string>> GetVoltageLevels()
         {
             return Ok(new List<string> { "LV", "MV", "HV" });
-        }
-
-        [HttpPost("visualize")]
-        [Authorize]
-        public async Task<ActionResult<BusbarVisualizationData>> GetVisualizationData(BusbarInput input)
-        {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            // Check license for 3D visualization feature
-            var hasValidLicense = await _licenseService.ValidateLicense(userId);
-            var license = await _licenseService.GetLicenseInfo(userId);
-
-            if (!hasValidLicense || !license.Features.Contains("3d-visualization"))
-                return BadRequest("Your license does not support 3D visualization. Please upgrade.");
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var visualizationData = _calculationService.GenerateVisualizationData(input);
-            return Ok(visualizationData);
         }
     }
 }
