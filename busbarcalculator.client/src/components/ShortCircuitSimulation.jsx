@@ -273,7 +273,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             <Card>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                        <ThunderboltOutlined color="primary" sx={{ mr: 1 }} />
+                                        <BoltOutlined color="primary" sx={{ mr: 1 }} />
                                         <Typography variant="h6" component="div">
                                             Peak Current
                                         </Typography>

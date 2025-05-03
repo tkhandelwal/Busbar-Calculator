@@ -11,14 +11,23 @@ import MenuIcon from '@mui/icons-material/Menu';
 import SaveIcon from '@mui/icons-material/Save';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CalculateIcon from '@mui/icons-material/Calculate';
+import BoltIcon from '@mui/icons-material/Bolt';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import ScienceIcon from '@mui/icons-material/Science';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+
 import BusbarForm from './components/BusbarForm';
 import BusbarVisualization from './components/BusbarVisualization';
 import HeatmapVisualization from './components/HeatmapVisualization';
 import AIRecommendations from './components/AIRecommendations';
 import FemFieldViewer from './components/FemFieldViewer';
+import FemVisualizationComponent from './components/FemVisualizationComponent';
 import ShortCircuitSimulation from './components/ShortCircuitSimulation';
+import EconomicComparison from './components/EconomicComparison';
+import PowerCableCalculator from './components/PowerCableCalculator';
 
-
+import { generatePdfReport } from './services/api';
 import './App.css';
 
 // Helper function to safely format numbers with toFixed
@@ -69,10 +78,16 @@ const theme = createTheme({
 function App() {
     const [busbarData, setBusbarData] = useState(null);
     const [activeTab, setActiveTab] = useState(0);
+    const [activeResultsTab, setActiveResultsTab] = useState(0);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [showPowerCableCalculator, setShowPowerCableCalculator] = useState(false);
 
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
+    };
+
+    const handleResultsTabChange = (event, newValue) => {
+        setActiveResultsTab(newValue);
     };
 
     const handleResultsCalculated = (results) => {
@@ -80,6 +95,8 @@ function App() {
         setBusbarData(results);
         // Set to Results tab when new results are calculated
         setActiveTab(1);
+        // Reset to first results tab
+        setActiveResultsTab(0);
     };
 
     const handleGeneratePdf = async () => {
@@ -87,25 +104,28 @@ function App() {
 
         setIsGeneratingPdf(true);
         try {
-            // In a real implementation, this would call the API
-            // For now, we'll just simulate a delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            console.log('PDF generated');
-            // In a real implementation, this would trigger a download
-            alert('PDF Report Generated');
+            await generatePdfReport(busbarData);
         } catch (error) {
             console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF report. Please try again later.');
         } finally {
             setIsGeneratingPdf(false);
         }
     };
 
+    // Check if FEM results exist
+    const hasFemResults = busbarData?.advancedResults && Object.keys(busbarData.advancedResults).length > 0;
+
     // Check if distribution data exists in advanced results
-    const hasDistributionData = busbarData?.advancedResults && (
+    const hasDistributionData = hasFemResults && (
         busbarData.advancedResults.ForceDistribution ||
         busbarData.advancedResults.StressDistribution ||
         busbarData.advancedResults.TemperatureDistribution
     );
+
+    const togglePowerCableCalculator = () => {
+        setShowPowerCableCalculator(!showPowerCableCalculator);
+    };
 
     return (
         <ThemeProvider theme={theme}>
@@ -145,9 +165,11 @@ function App() {
                         <Tabs value={activeTab} onChange={handleTabChange} aria-label="busbar calculator tabs">
                             <Tab label="Calculator" icon={<CalculateIcon />} iconPosition="start" />
                             {busbarData && <Tab label="Results" />}
+                            <Tab label="Power Cable Calculator" onClick={togglePowerCableCalculator} />
                         </Tabs>
                     </Box>
 
+                    {/* Calculator Tab */}
                     <Box role="tabpanel" hidden={activeTab !== 0} sx={{ py: 3 }}>
                         {activeTab === 0 && (
                             <>
@@ -162,241 +184,338 @@ function App() {
                         )}
                     </Box>
 
+                    {/* Results Tab */}
                     <Box role="tabpanel" hidden={activeTab !== 1} sx={{ py: 3 }}>
                         {activeTab === 1 && busbarData && (
-                            <Grid container spacing={4}>
-                                <Grid item xs={12} md={8}>
+                            <>
+                                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                                    <Tabs
+                                        value={activeResultsTab}
+                                        onChange={handleResultsTabChange}
+                                        variant="scrollable"
+                                        scrollButtons="auto"
+                                        aria-label="busbar results tabs"
+                                    >
+                                        <Tab label="Summary" />
+                                        <Tab icon={<VisibilityIcon />} label="Visualization" />
+                                        {hasFemResults && <Tab icon={<ScienceIcon />} label="FEM Analysis" />}
+                                        <Tab icon={<BoltIcon />} label="Short Circuit" />
+                                        <Tab icon={<AttachMoneyIcon />} label="Economic Analysis" />
+                                        <Tab icon={<SmartToyIcon />} label="AI Recommendations" />
+                                    </Tabs>
+                                </Box>
+
+                                {/* Summary Tab */}
+                                <Box hidden={activeResultsTab !== 0}>
+                                    <Grid container spacing={4}>
+                                        <Grid item xs={12}>
+                                            <Paper elevation={3} sx={{ p: 3 }}>
+                                                <Typography variant="h5" component="h2" gutterBottom>
+                                                    Calculation Results
+                                                </Typography>
+                                                <Divider sx={{ mb: 3 }} />
+
+                                                <Grid container spacing={3}>
+                                                    <Grid item xs={12} md={6}>
+                                                        <Card>
+                                                            <CardContent>
+                                                                <Typography variant="h6" gutterBottom>
+                                                                    Electrical Parameters
+                                                                </Typography>
+                                                                <List dense>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Required Cross-Section Area"
+                                                                            secondary={`${safeToFixed(busbarData.requiredCrossSectionArea)} mm深}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Current Density"
+                                                                            secondary={`${safeToFixed(busbarData.currentDensity)} A/mm深}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Temperature Rise"
+                                                                            secondary={`${safeToFixed(busbarData.temperatureRise)} 蚓`}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Max Allowable Temperature"
+                                                                            secondary={`${safeToFixed(busbarData.maxAllowableTemperature)} 蚓`}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Sizing Status"
+                                                                            secondary={busbarData.isSizingSufficient ? "Sufficient" : "Insufficient"}
+                                                                            secondaryTypographyProps={{
+                                                                                color: busbarData.isSizingSufficient ? "success.main" : "error.main",
+                                                                                fontWeight: 'bold'
+                                                                            }}
+                                                                        />
+                                                                    </ListItem>
+                                                                </List>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </Grid>
+
+                                                    <Grid item xs={12} md={6}>
+                                                        <Card>
+                                                            <CardContent>
+                                                                <Typography variant="h6" gutterBottom>
+                                                                    Mechanical Parameters
+                                                                </Typography>
+                                                                <List dense>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Short Circuit Force"
+                                                                            secondary={`${safeToFixed(busbarData.shortCircuitForce)} N`}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Mechanical Stress"
+                                                                            secondary={`${safeToFixed(busbarData.mechanicalStress / 1e6)} MPa`}
+                                                                        />
+                                                                    </ListItem>
+                                                                    <ListItem>
+                                                                        <ListItemText
+                                                                            primary="Max Allowable Stress"
+                                                                            secondary={`${safeToFixed(busbarData.maxAllowableMechanicalStress / 1e6)} MPa`}
+                                                                        />
+                                                                    </ListItem>
+                                                                </List>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </Grid>
+
+                                                    <Grid item xs={12}>
+                                                        <Card>
+                                                            <CardContent>
+                                                                <Typography variant="h6" gutterBottom>
+                                                                    Recommended Standard Sizes
+                                                                </Typography>
+                                                                <Grid container spacing={2}>
+                                                                    {busbarData.recommendedStandardSizes && busbarData.recommendedStandardSizes.map((size, index) => (
+                                                                        <Grid item key={index}>
+                                                                            <Paper
+                                                                                elevation={2}
+                                                                                sx={{
+                                                                                    p: 2,
+                                                                                    bgcolor: index === 0 ? 'primary.light' : 'background.paper',
+                                                                                    color: index === 0 ? 'primary.contrastText' : 'text.primary'
+                                                                                }}
+                                                                            >
+                                                                                {size}
+                                                                                {index === 0 && (
+                                                                                    <Typography variant="caption" display="block">
+                                                                                        (Best match)
+                                                                                    </Typography>
+                                                                                )}
+                                                                            </Paper>
+                                                                        </Grid>
+                                                                    ))}
+                                                                </Grid>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </Grid>
+
+                                                    {busbarData.advancedResults && (
+                                                        <Grid item xs={12}>
+                                                            <Card>
+                                                                <CardContent>
+                                                                    <Typography variant="h6" gutterBottom>
+                                                                        Advanced Analysis Results
+                                                                    </Typography>
+
+                                                                    {/* Display non-distribution advanced results */}
+                                                                    <Grid container spacing={2}>
+                                                                        {Object.entries(busbarData.advancedResults).map(([key, value]) => {
+                                                                            // Skip distribution arrays from this display
+                                                                            if (key.includes('Distribution')) {
+                                                                                return null;
+                                                                            }
+
+                                                                            return (
+                                                                                <Grid item xs={12} sm={6} lg={4} key={key}>
+                                                                                    <Typography variant="body2" color="textSecondary">
+                                                                                        {formatKey(key)}:
+                                                                                    </Typography>
+                                                                                    <Typography variant="body1">
+                                                                                        {typeof value === 'boolean'
+                                                                                            ? (value ? 'Yes' : 'No')
+                                                                                            : typeof value === 'number'
+                                                                                                ? safeToFixed(value)
+                                                                                                : String(value)}
+                                                                                    </Typography>
+                                                                                </Grid>
+                                                                            );
+                                                                        })}
+                                                                    </Grid>
+
+                                                                    {/* Distribution Visualizations */}
+                                                                    {hasDistributionData && (
+                                                                        <Box mt={4}>
+                                                                            <Typography variant="h6" gutterBottom>
+                                                                                Distribution Analysis
+                                                                            </Typography>
+                                                                            <Grid container spacing={3}>
+                                                                                {busbarData.advancedResults.ForceDistribution && (
+                                                                                    <Grid item xs={12}>
+                                                                                        <HeatmapVisualization
+                                                                                            distributionData={busbarData.advancedResults.ForceDistribution}
+                                                                                            width={700}
+                                                                                            height={250}
+                                                                                            title="Force Distribution (N)"
+                                                                                        />
+                                                                                    </Grid>
+                                                                                )}
+
+                                                                                {busbarData.advancedResults.StressDistribution && (
+                                                                                    <Grid item xs={12}>
+                                                                                        <HeatmapVisualization
+                                                                                            distributionData={busbarData.advancedResults.StressDistribution}
+                                                                                            width={700}
+                                                                                            height={250}
+                                                                                            title="Stress Distribution (MPa)"
+                                                                                        />
+                                                                                    </Grid>
+                                                                                )}
+
+                                                                                {busbarData.advancedResults.TemperatureDistribution && (
+                                                                                    <Grid item xs={12}>
+                                                                                        <HeatmapVisualization
+                                                                                            distributionData={busbarData.advancedResults.TemperatureDistribution}
+                                                                                            width={700}
+                                                                                            height={250}
+                                                                                            title="Temperature Distribution (蚓)"
+                                                                                        />
+                                                                                    </Grid>
+                                                                                )}
+                                                                            </Grid>
+                                                                        </Box>
+                                                                    )}
+                                                                </CardContent>
+                                                            </Card>
+                                                        </Grid>
+                                                    )}
+                                                </Grid>
+
+                                                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                                                    <Button
+                                                        variant="outlined"
+                                                        onClick={() => setActiveTab(0)}
+                                                        sx={{ mr: 2 }}
+                                                    >
+                                                        Back to Calculator
+                                                    </Button>
+                                                    <Button
+                                                        variant="contained"
+                                                        onClick={handleGeneratePdf}
+                                                        startIcon={isGeneratingPdf ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
+                                                        disabled={isGeneratingPdf}
+                                                    >
+                                                        {isGeneratingPdf ? 'Generating...' : 'Generate PDF Report'}
+                                                    </Button>
+                                                </Box>
+                                            </Paper>
+                                        </Grid>
+                                    </Grid>
+                                </Box>
+
+                                {/* Visualization Tab */}
+                                <Box hidden={activeResultsTab !== 1}>
                                     <Paper elevation={3} sx={{ p: 3 }}>
                                         <Typography variant="h5" component="h2" gutterBottom>
-                                            Calculation Results
+                                            3D Visualization
                                         </Typography>
-                                        <Divider sx={{ mb: 3 }} />
-
-                                        <Grid container spacing={3}>
-                                            <Grid item xs={12} md={6}>
-                                                <Card>
-                                                    <CardContent>
-                                                        <Typography variant="h6" gutterBottom>
-                                                            Electrical Parameters
-                                                        </Typography>
-                                                        <List dense>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Required Cross-Section Area"
-                                                                    secondary={`${safeToFixed(busbarData.requiredCrossSectionArea)} mm深}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Current Density"
-                                                                    secondary={`${safeToFixed(busbarData.currentDensity)} A/mm深}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Temperature Rise"
-                                                                    secondary={`${safeToFixed(busbarData.temperatureRise)} 蚓`}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Max Allowable Temperature"
-                                                                    secondary={`${safeToFixed(busbarData.maxAllowableTemperature)} 蚓`}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Sizing Status"
-                                                                    secondary={busbarData.isSizingSufficient ? "Sufficient" : "Insufficient"}
-                                                                    secondaryTypographyProps={{
-                                                                        color: busbarData.isSizingSufficient ? "success.main" : "error.main",
-                                                                        fontWeight: 'bold'
-                                                                    }}
-                                                                />
-                                                            </ListItem>
-                                                        </List>
-                                                    </CardContent>
-                                                </Card>
-                                            </Grid>
-
-                                            <Grid item xs={12} md={6}>
-                                                <Card>
-                                                    <CardContent>
-                                                        <Typography variant="h6" gutterBottom>
-                                                            Mechanical Parameters
-                                                        </Typography>
-                                                        <List dense>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Short Circuit Force"
-                                                                    secondary={`${safeToFixed(busbarData.shortCircuitForce)} N`}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Mechanical Stress"
-                                                                    secondary={`${safeToFixed(busbarData.mechanicalStress / 1e6)} MPa`}
-                                                                />
-                                                            </ListItem>
-                                                            <ListItem>
-                                                                <ListItemText
-                                                                    primary="Max Allowable Stress"
-                                                                    secondary={`${safeToFixed(busbarData.maxAllowableMechanicalStress / 1e6)} MPa`}
-                                                                />
-                                                            </ListItem>
-                                                        </List>
-                                                    </CardContent>
-                                                </Card>
-                                            </Grid>
-
-                                            <Grid item xs={12}>
-                                                <Card>
-                                                    <CardContent>
-                                                        <Typography variant="h6" gutterBottom>
-                                                            Recommended Standard Sizes
-                                                        </Typography>
-                                                        <Grid container spacing={2}>
-                                                            {busbarData.recommendedStandardSizes && busbarData.recommendedStandardSizes.map((size, index) => (
-                                                                <Grid item key={index}>
-                                                                    <Paper
-                                                                        elevation={2}
-                                                                        sx={{
-                                                                            p: 2,
-                                                                            bgcolor: index === 0 ? 'primary.light' : 'background.paper',
-                                                                            color: index === 0 ? 'primary.contrastText' : 'text.primary'
-                                                                        }}
-                                                                    >
-                                                                        {size}
-                                                                        {index === 0 && (
-                                                                            <Typography variant="caption" display="block">
-                                                                                (Best match)
-                                                                            </Typography>
-                                                                        )}
-                                                                    </Paper>
-                                                                </Grid>
-                                                            ))}
-                                                        </Grid>
-                                                    </CardContent>
-                                                </Card>
-                                            </Grid>
-
-                                            {busbarData.advancedResults && (
-                                                <Grid item xs={12}>
-                                                    <Card>
-                                                        <CardContent>
-                                                            <Typography variant="h6" gutterBottom>
-                                                                Advanced Analysis Results
-                                                            </Typography>
-
-                                                            {/* Display non-distribution advanced results */}
-                                                            <Grid container spacing={2}>
-                                                                {Object.entries(busbarData.advancedResults).map(([key, value]) => {
-                                                                    // Skip distribution arrays from this display
-                                                                    if (key.includes('Distribution')) {
-                                                                        return null;
-                                                                    }
-
-                                                                    return (
-                                                                        <Grid item xs={12} sm={6} lg={4} key={key}>
-                                                                            <Typography variant="body2" color="textSecondary">
-                                                                                {formatKey(key)}:
-                                                                            </Typography>
-                                                                            <Typography variant="body1">
-                                                                                {typeof value === 'boolean'
-                                                                                    ? (value ? 'Yes' : 'No')
-                                                                                    : typeof value === 'number'
-                                                                                        ? safeToFixed(value)
-                                                                                        : String(value)}
-                                                                            </Typography>
-                                                                        </Grid>
-                                                                    );
-                                                                })}
-                                                            </Grid>
-
-                                                            {/* Distribution Visualizations */}
-                                                            {hasDistributionData && (
-                                                                <Box mt={4}>
-                                                                    <Typography variant="h6" gutterBottom>
-                                                                        Distribution Analysis
-                                                                    </Typography>
-                                                                    <Grid container spacing={3}>
-                                                                        {busbarData.advancedResults.ForceDistribution && (
-                                                                            <Grid item xs={12}>
-                                                                                <HeatmapVisualization
-                                                                                    distributionData={busbarData.advancedResults.ForceDistribution}
-                                                                                    width={700}
-                                                                                    height={250}
-                                                                                    title="Force Distribution (N)"
-                                                                                />
-                                                                            </Grid>
-                                                                        )}
-
-                                                                        {busbarData.advancedResults.StressDistribution && (
-                                                                            <Grid item xs={12}>
-                                                                                <HeatmapVisualization
-                                                                                    distributionData={busbarData.advancedResults.StressDistribution}
-                                                                                    width={700}
-                                                                                    height={250}
-                                                                                    title="Stress Distribution (MPa)"
-                                                                                />
-                                                                            </Grid>
-                                                                        )}
-
-                                                                        {busbarData.advancedResults.TemperatureDistribution && (
-                                                                            <Grid item xs={12}>
-                                                                                <HeatmapVisualization
-                                                                                    distributionData={busbarData.advancedResults.TemperatureDistribution}
-                                                                                    width={700}
-                                                                                    height={250}
-                                                                                    title="Temperature Distribution (蚓)"
-                                                                                />
-                                                                            </Grid>
-                                                                        )}
-                                                                    </Grid>
-                                                                </Box>
-                                                            )}
-                                                        </CardContent>
-                                                    </Card>
-                                                </Grid>
-                                            )}
-                                        </Grid>
-
-                                        <Box sx={{ mt: 4 }}>
-                                            <Typography variant="h5" gutterBottom>
-                                                3D Visualization
-                                            </Typography>
-                                            <BusbarVisualization busbarData={busbarData} />
-
-                                            {busbarData?.advancedResults && (
-                                                <FemFieldViewer busbarData={busbarData} />
-                                            )}
-
-                                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                                                <Button
-                                                    variant="outlined"
-                                                    onClick={() => setActiveTab(0)}
-                                                    sx={{ mr: 2 }}
-                                                >
-                                                    Back to Calculator
-                                                </Button>
-                                                <Button
-                                                    variant="contained"
-                                                    onClick={handleGeneratePdf}
-                                                    startIcon={isGeneratingPdf ? <CircularProgress size={20} /> : <PictureAsPdfIcon />}
-                                                    disabled={isGeneratingPdf}
-                                                >
-                                                    {isGeneratingPdf ? 'Generating...' : 'Generate PDF Report'}
-                                                </Button>
-                                            </Box>
-                                        </Box>
+                                        <BusbarVisualization busbarData={busbarData} />
                                     </Paper>
-                                </Grid>
+                                </Box>
 
-                                <Grid item xs={12} md={4}>
+                                {/* FEM Analysis Tab */}
+                                {hasFemResults && (
+                                    <Box hidden={activeResultsTab !== 2}>
+                                        <Paper elevation={3} sx={{ p: 3 }}>
+                                            <Typography variant="h5" component="h2" gutterBottom>
+                                                Finite Element Analysis
+                                            </Typography>
+
+                                            <FemVisualizationComponent femResults={busbarData.advancedResults} busbarData={busbarData} />
+
+                                            <Box sx={{ mt: 4 }}>
+                                                <FemFieldViewer busbarData={busbarData} />
+                                            </Box>
+
+                                            {hasDistributionData && (
+                                                <Box mt={4}>
+                                                    <Typography variant="h6" gutterBottom>
+                                                        Distribution Analysis
+                                                    </Typography>
+                                                    <Grid container spacing={3}>
+                                                        {busbarData.advancedResults.ForceDistribution && (
+                                                            <Grid item xs={12}>
+                                                                <HeatmapVisualization
+                                                                    distributionData={busbarData.advancedResults.ForceDistribution}
+                                                                    width={700}
+                                                                    height={250}
+                                                                    title="Force Distribution (N)"
+                                                                />
+                                                            </Grid>
+                                                        )}
+
+                                                        {busbarData.advancedResults.StressDistribution && (
+                                                            <Grid item xs={12}>
+                                                                <HeatmapVisualization
+                                                                    distributionData={busbarData.advancedResults.StressDistribution}
+                                                                    width={700}
+                                                                    height={250}
+                                                                    title="Stress Distribution (MPa)"
+                                                                />
+                                                            </Grid>
+                                                        )}
+
+                                                        {busbarData.advancedResults.TemperatureDistribution && (
+                                                            <Grid item xs={12}>
+                                                                <HeatmapVisualization
+                                                                    distributionData={busbarData.advancedResults.TemperatureDistribution}
+                                                                    width={700}
+                                                                    height={250}
+                                                                    title="Temperature Distribution (蚓)"
+                                                                />
+                                                            </Grid>
+                                                        )}
+                                                    </Grid>
+                                                </Box>
+                                            )}
+                                        </Paper>
+                                    </Box>
+                                )}
+
+                                {/* Short Circuit Tab */}
+                                <Box hidden={activeResultsTab !== (hasFemResults ? 3 : 2)}>
+                                    <ShortCircuitSimulation busbarData={busbarData} />
+                                </Box>
+
+                                {/* Economic Analysis Tab */}
+                                <Box hidden={activeResultsTab !== (hasFemResults ? 4 : 3)}>
+                                    <EconomicComparison busbarData={busbarData} />
+                                </Box>
+
+                                {/* AI Recommendations Tab */}
+                                <Box hidden={activeResultsTab !== (hasFemResults ? 5 : 4)}>
                                     <AIRecommendations busbarData={busbarData} />
-                                </Grid>
-                            </Grid>
+                                </Box>
+                            </>
                         )}
+                    </Box>
+
+                    {/* Power Cable Calculator Tab */}
+                    <Box role="tabpanel" hidden={!showPowerCableCalculator} sx={{ py: 3 }}>
+                        {showPowerCableCalculator && <PowerCableCalculator />}
                     </Box>
                 </Box>
             </Container>
