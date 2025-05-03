@@ -16,6 +16,9 @@ import BusbarVisualization from './components/BusbarVisualization';
 import HeatmapVisualization from './components/HeatmapVisualization';
 import AIRecommendations from './components/AIRecommendations';
 import FemFieldViewer from './components/FemFieldViewer';
+import ShortCircuitSimulation from './components/ShortCircuitSimulation';
+
+
 import './App.css';
 
 // Helper function to safely format numbers with toFixed

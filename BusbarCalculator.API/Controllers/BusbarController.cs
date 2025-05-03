@@ -14,6 +14,7 @@ namespace BusbarCalculator.API.Controllers
         private readonly BusbarCalculationService _calculationService;
         private readonly SampleDataService _sampleDataService;
         private readonly FemAnalysisService _femAnalysisService;
+        private readonly IShortCircuitService _shortCircuitService;
         private readonly PdfReportService _pdfReportService;
         private readonly ILogger<BusbarController> _logger;
 
@@ -21,6 +22,7 @@ namespace BusbarCalculator.API.Controllers
             BusbarCalculationService calculationService,
             SampleDataService sampleDataService,
             FemAnalysisService femAnalysisService,
+            ShortCircuitService shortCircuitService, // Add this parameter
             PdfReportService pdfReportService,
             ILogger<BusbarController> logger)
         {
@@ -28,6 +30,7 @@ namespace BusbarCalculator.API.Controllers
             _sampleDataService = sampleDataService;
             _femAnalysisService = femAnalysisService;
             _pdfReportService = pdfReportService;
+            _shortCircuitService = shortCircuitService; // Assign the service
             _logger = logger;
         }
 
@@ -141,9 +144,12 @@ namespace BusbarCalculator.API.Controllers
             try
             {
                 var result = _shortCircuitService.SimulateShortCircuit(
-                    request.BusbarInput,
-                    request.Duration,
-                    request.TimeSteps);
+                        new ShortCircuitSimulationRequest
+                        {
+                            BusbarInput = request.BusbarInput,
+                            Duration = request.Duration,
+                            TimeSteps = request.TimeSteps
+                        });
 
                 return Ok(result);
             }

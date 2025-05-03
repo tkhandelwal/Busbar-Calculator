@@ -32,6 +32,8 @@ import {
 import { Bar, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
 import * as THREE from 'three';
+import PropTypes from 'prop-types';
+
 
 // Register ChartJS components
 ChartJS.register(
@@ -677,6 +679,15 @@ const BusbarResults = ({ results }) => {
             </Grid>
         </Paper>
     );
+};
+
+// At the bottom of the file
+BusbarResults.propTypes = {
+    results: PropTypes.object
+};
+
+BusbarResults.defaultProps = {
+    results: null
 };
 
 export default BusbarResults;

@@ -2,6 +2,17 @@
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import Plot from 'react-plotly.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+
+// Register ChartJS components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+);
 
 const ChartComponent = ({ data, layout, title, height = 400 }) => {
     return (

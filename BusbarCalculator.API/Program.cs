@@ -16,6 +16,7 @@ builder.Logging.AddDebug();
 // Add services to the container
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<IShortCircuitService, ShortCircuitService>();
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -26,15 +27,18 @@ builder.Services.AddControllers()
     });
 
 // Configure CORS for development
+// BusbarCalculator.API/Program.cs - Update CORS configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Add this if needed for cookies
     });
 });
+
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -46,6 +50,8 @@ builder.Services.AddScoped<SampleDataService>();
 builder.Services.AddScoped<FemAnalysisService>();
 
 var app = builder.Build();
+app.UseCors("AllowReactApp");
+
 
 // Add middleware for request logging in development
 if (app.Environment.IsDevelopment())
@@ -71,8 +77,6 @@ else
     app.UseHsts();
 }
 
-// Enable CORS before routing
-app.UseCors("AllowReactApp");
 
 app.UseHttpsRedirection();
 // app.UseStaticFiles();

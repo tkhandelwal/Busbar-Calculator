@@ -107,6 +107,7 @@ const MOCK_STANDARD_CONFIGS = [
     }
 ];
 
+// src/services/api.js - Improve error handling
 export const calculateBusbar = async (inputData) => {
     try {
         console.log('Calculating busbar with data:', inputData);
@@ -114,11 +115,16 @@ export const calculateBusbar = async (inputData) => {
         return response.data;
     } catch (error) {
         console.error('Error calculating busbar:', error);
-        if (process.env.NODE_ENV === 'development') {
-            console.warn('Using mock data due to API error');
-            return MOCK_BUSBAR_RESULT;
+        if (error.response) {
+            // Server responded with error status
+            throw new Error(`Server error: ${error.response.status} - ${error.response.data?.error || error.message}`);
+        } else if (error.request) {
+            // No response from server
+            throw new Error('No response from server. Please check your connection.');
+        } else {
+            // Something else happened
+            throw new Error(`Error: ${error.message}`);
         }
-        throw error; // In production, let the caller handle the error
     }
 };
 
