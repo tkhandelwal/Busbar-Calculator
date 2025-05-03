@@ -13,10 +13,6 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// Add services to the container
-builder.Services.AddScoped<PdfReportService>();
-builder.Services.AddScoped<IShortCircuitService, ShortCircuitService>();
-
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -45,6 +41,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Register custom services - using AddScoped instead of AddSingleton for testing
+builder.Services.AddScoped<PdfReportService>();
+builder.Services.AddScoped<IShortCircuitService, ShortCircuitService>(); // Add this line
 builder.Services.AddScoped<BusbarCalculationService>();
 builder.Services.AddScoped<SampleDataService>();
 builder.Services.AddScoped<FemAnalysisService>();

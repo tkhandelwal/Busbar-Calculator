@@ -22,15 +22,15 @@ namespace BusbarCalculator.API.Controllers
             BusbarCalculationService calculationService,
             SampleDataService sampleDataService,
             FemAnalysisService femAnalysisService,
-            ShortCircuitService shortCircuitService, // Add this parameter
+            IShortCircuitService shortCircuitService, // Use interface here
             PdfReportService pdfReportService,
             ILogger<BusbarController> logger)
         {
             _calculationService = calculationService;
             _sampleDataService = sampleDataService;
             _femAnalysisService = femAnalysisService;
+            _shortCircuitService = shortCircuitService;
             _pdfReportService = pdfReportService;
-            _shortCircuitService = shortCircuitService; // Assign the service
             _logger = logger;
         }
 
@@ -128,9 +128,10 @@ namespace BusbarCalculator.API.Controllers
             }
         }
 
+        // In BusbarController.cs, replace the nested ShortCircuitSimulationRequest class with:
         [HttpPost("simulate-short-circuit")]
         public ActionResult<ShortCircuitSimulationResult> SimulateShortCircuit(
-    [FromBody] ShortCircuitSimulationRequest request)
+            [FromBody] ShortCircuitSimulationRequest request)
         {
             _logger.LogInformation("Simulating short circuit for duration: {Duration}s",
                 request.Duration);
@@ -143,14 +144,7 @@ namespace BusbarCalculator.API.Controllers
 
             try
             {
-                var result = _shortCircuitService.SimulateShortCircuit(
-                        new ShortCircuitSimulationRequest
-                        {
-                            BusbarInput = request.BusbarInput,
-                            Duration = request.Duration,
-                            TimeSteps = request.TimeSteps
-                        });
-
+                var result = _shortCircuitService.SimulateShortCircuit(request);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -160,12 +154,6 @@ namespace BusbarCalculator.API.Controllers
             }
         }
 
-        public class ShortCircuitSimulationRequest
-        {
-            public BusbarInput BusbarInput { get; set; } = new BusbarInput();
-            public double Duration { get; set; } = 1.0;
-            public int TimeSteps { get; set; } = 100;
-        }
 
         [HttpPost("analyze-safety")]
         public ActionResult<SafetyAnalysisResult> AnalyzeSafety([FromBody] BusbarResult result)

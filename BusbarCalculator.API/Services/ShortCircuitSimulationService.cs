@@ -1,35 +1,11 @@
-﻿using System;
-using BusbarCalculator.API.Controllers;
+﻿// BusbarCalculator.API/Services/ShortCircuitService.cs
+using System;
+using System.Linq;
 using BusbarCalculator.API.Models;
 using Microsoft.Extensions.Logging;
 
 namespace BusbarCalculator.API.Services
 {
-    // Request model for the short circuit simulation
-    public class ShortCircuitSimulationRequest
-    {
-        public BusbarInput BusbarInput { get; set; } = null!;
-        public double Duration { get; set; } = 1.0; // Duration in seconds
-        public int TimeSteps { get; set; } = 100; // Number of calculation points
-    }
-
-    // Result model containing simulation data
-    public class ShortCircuitSimulationResult
-    {
-        public double[] TimePoints { get; set; } = Array.Empty<double>();
-        public double[] CurrentValues { get; set; } = Array.Empty<double>();
-        public double[] ForceValues { get; set; } = Array.Empty<double>();
-        public double[] TemperatureValues { get; set; } = Array.Empty<double>();
-    }
-
-    // Interface for the service
-    public interface IShortCircuitService
-    {
-        ShortCircuitSimulationResult SimulateShortCircuit(ShortCircuitSimulationRequest request);
-        object SimulateShortCircuit(BusbarController.ShortCircuitSimulationRequest shortCircuitSimulationRequest);
-    }
-
-    // Implementation of the service
     public class ShortCircuitService : IShortCircuitService
     {
         private readonly ILogger<ShortCircuitService> _logger;
@@ -92,9 +68,7 @@ namespace BusbarCalculator.API.Services
             // Temperature tracking
             double currentTemperature = input.AmbientTemperature;
 
-
             // Simulate for each time step
-
             for (int i = 0; i < request.TimeSteps; i++)
             {
                 double t = i * dt;
@@ -121,7 +95,6 @@ namespace BusbarCalculator.API.Services
                 double heatDissipation = (currentTemperature - input.AmbientTemperature) * dissipationFactor * dt;
                 currentTemperature += temperatureRise - heatDissipation;
 
-                result.ForceValues[i] = result.CurrentValues[i] * 0.5; // Simplified for example
                 result.TemperatureValues[i] = currentTemperature;
             }
 

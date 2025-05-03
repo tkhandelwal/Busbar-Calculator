@@ -484,10 +484,7 @@ const BusbarForm = ({ onResultsCalculated }) => {
                                     color="primary"
                                     disabled={isLoading}
                                     startIcon={isLoading ? <CircularProgress size={20} /> : null}
-                                    onClick={(e) => {
-                                        e.preventDefault(); // Prevent any default action
-                                        handleSubmit(onSubmit)(); // Manually trigger form submission
-                                    }}
+                                    form="busbarForm"
                                 >
                                     {isLoading ? 'Calculating...' : 'Calculate'}
                                 </Button>

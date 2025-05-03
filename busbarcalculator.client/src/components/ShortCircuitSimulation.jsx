@@ -20,7 +20,7 @@ import {
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import PropTypes from 'prop-types';
-import { TimerOutlined, ThunderboltOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
+import { TimerOutlined, BoltOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
 
 // Helper function to safely format numbers with toFixed
 const safeToFixed = (value, digits = 2) => {

@@ -1,4 +1,4 @@
-﻿// BusbarCalculator.API/Models/ShortCircuitSimulationModels.cs
+﻿// Models/ShortCircuitSimulationModels.cs
 using System;
 
 namespace BusbarCalculator.API.Models
