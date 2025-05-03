@@ -1,19 +1,29 @@
-// Enhanced BusbarVisualization.jsx
+// src/components/BusbarVisualization.jsx
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const BusbarVisualization = ({ busbarData }) => {
     const mountRef = useRef(null);
+    const requestRef = useRef(null);
     const sceneRef = useRef(null);
     const rendererRef = useRef(null);
     const controlsRef = useRef(null);
 
     useEffect(() => {
-        if (!mountRef.current) return;
+        if (!mountRef.current || !busbarData) return;
+
+        // Clear previous scene
+        if (rendererRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
+            mountRef.current.removeChild(rendererRef.current.domElement);
+        }
 
         // Initialize Three.js scene
         const scene = new THREE.Scene();
+        sceneRef.current = scene;
+        scene.background = new THREE.Color(0x222222);
+
+        // Create camera
         const camera = new THREE.PerspectiveCamera(
             75,
             mountRef.current.clientWidth / mountRef.current.clientHeight,
@@ -21,42 +31,32 @@ const BusbarVisualization = ({ busbarData }) => {
             1000
         );
 
+        // Create renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-
-        // Store refs for cleanup
-        sceneRef.current = scene;
         rendererRef.current = renderer;
-
         renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         mountRef.current.appendChild(renderer.domElement);
 
-        // Add OrbitControls for better interaction
+        // Add orbit controls
         const controls = new OrbitControls(camera, renderer.domElement);
+        controlsRef.current = controls;
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controlsRef.current = controls;
 
-        // Set background color
-        scene.background = new THREE.Color(0xf5f5f5);
-
-        // Create dimensions based on busbar data with proper scaling
+        // Extract dimensions
         const width = busbarData?.busbarWidth || 100;
         const thickness = busbarData?.busbarThickness || 10;
         const length = busbarData?.busbarLength || 1000;
 
-        // Scale down for better visualization
+        // Scale for better visualization
         const maxDimension = Math.max(width, thickness, length);
-        const scale = 80 / maxDimension; // Aim for ~80 units max size
+        const scale = 50 / maxDimension;
 
         const scaledWidth = width * scale;
         const scaledThickness = thickness * scale;
         const scaledLength = length * scale;
-
-        // Create busbar geometry
-        const geometry = new THREE.BoxGeometry(scaledWidth, scaledThickness, scaledLength);
 
         // Material based on temperature
         const temperatureRatio = busbarData?.temperatureRise
@@ -71,17 +71,15 @@ const BusbarVisualization = ({ busbarData }) => {
                 Math.max(0.8 - temperatureRatio * 0.8, 0)  // Less blue when hotter
             ),
             metalness: 0.7,
-            roughness: 0.3,
-            envMapIntensity: 1.0
+            roughness: 0.3
         });
 
+        // Create busbar geometry
+        const geometry = new THREE.BoxGeometry(scaledWidth, scaledThickness, scaledLength);
         const busbar = new THREE.Mesh(geometry, material);
         busbar.castShadow = true;
         busbar.receiveShadow = true;
         scene.add(busbar);
-
-        // Add magnetic field visualization (field lines)
-        addMagneticFieldLines(scene, busbar, scaledWidth, scaledThickness, scaledLength);
 
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -90,24 +88,12 @@ const BusbarVisualization = ({ busbarData }) => {
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(scaledWidth * 2, scaledThickness * 4, scaledLength * 0.5);
         directionalLight.castShadow = true;
-
-        // Set up shadow properties
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 500;
         scene.add(directionalLight);
-
-        // Add a subtle spotlight for dramatic effect
-        const spotLight = new THREE.SpotLight(0xffffff, 0.5);
-        spotLight.position.set(-scaledWidth * 3, scaledThickness * 5, -scaledLength * 0.5);
-        spotLight.castShadow = true;
-        scene.add(spotLight);
 
         // Add a ground plane for shadow casting
         const groundGeometry = new THREE.PlaneGeometry(scaledLength * 3, scaledLength * 3);
         const groundMaterial = new THREE.MeshStandardMaterial({
-            color: 0xeeeeee,
+            color: 0x444444,
             roughness: 0.8,
             metalness: 0.2,
             side: THREE.DoubleSide
@@ -118,20 +104,19 @@ const BusbarVisualization = ({ busbarData }) => {
         ground.receiveShadow = true;
         scene.add(ground);
 
+        // Add grid for reference
+        const gridHelper = new THREE.GridHelper(scaledLength * 2, 20);
+        gridHelper.position.y = -scaledThickness * 2;
+        scene.add(gridHelper);
+
         // Position camera
         camera.position.set(scaledWidth * 2, scaledThickness * 4, scaledLength * 0.5);
         camera.lookAt(busbar.position);
         controls.update();
 
-        // Add grid for reference
-        const gridHelper = new THREE.GridHelper(scaledLength * 2, 20, 0x888888, 0x444444);
-        gridHelper.position.y = -scaledThickness * 2;
-        scene.add(gridHelper);
-
-        // Animation loop with smoother rotation
-        let animationId;
+        // Animation loop
         const animate = () => {
-            animationId = requestAnimationFrame(animate);
+            requestRef.current = requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         };
@@ -155,11 +140,15 @@ const BusbarVisualization = ({ busbarData }) => {
         // Cleanup function
         return () => {
             window.removeEventListener('resize', handleResize);
-            cancelAnimationFrame(animationId);
 
-            // Dispose of resources properly
+            if (requestRef.current) {
+                cancelAnimationFrame(requestRef.current);
+            }
+
             if (rendererRef.current && mountRef.current) {
-                mountRef.current.removeChild(rendererRef.current.domElement);
+                if (mountRef.current.contains(rendererRef.current.domElement)) {
+                    mountRef.current.removeChild(rendererRef.current.domElement);
+                }
             }
 
             if (controlsRef.current) {
@@ -172,67 +161,26 @@ const BusbarVisualization = ({ busbarData }) => {
             groundGeometry.dispose();
             groundMaterial.dispose();
 
-            // Clear scene
             if (sceneRef.current) {
                 sceneRef.current.clear();
             }
         };
     }, [busbarData]);
 
-    // Function to add magnetic field visualization
-    const addMagneticFieldLines = (scene, busbar, width, height, length) => {
-        // Use current value to determine field strength
-        const current = busbarData?.current || 1000;
-        const normalizedCurrent = Math.min(Math.max(current / 5000, 0.2), 1);
-
-        // Create magnetic field lines as curved tubes
-        const fieldLineCount = 12;
-        const fieldRadius = Math.max(width, height) * 3;
-
-        // Create field lines in circular patterns around the busbar
-        for (let i = 0; i < fieldLineCount; i++) {
-            const angle = (i / fieldLineCount) * Math.PI * 2;
-            const curve = new THREE.CubicBezierCurve3(
-                new THREE.Vector3(Math.cos(angle) * fieldRadius, Math.sin(angle) * fieldRadius, -length / 2),
-                new THREE.Vector3(Math.cos(angle + Math.PI / 2) * fieldRadius, Math.sin(angle + Math.PI / 2) * fieldRadius, -length / 4),
-                new THREE.Vector3(Math.cos(angle + Math.PI) * fieldRadius, Math.sin(angle + Math.PI) * fieldRadius, length / 4),
-                new THREE.Vector3(Math.cos(angle + Math.PI * 3 / 2) * fieldRadius, Math.sin(angle + Math.PI * 3 / 2) * fieldRadius, length / 2)
-            );
-
-            const points = curve.getPoints(50);
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-            // Create a ColorRamp for the field line
-            const colors = [];
-            for (let j = 0; j < points.length; j++) {
-                const strength = 1 - j / points.length;  // Fade out along the line
-                colors.push(
-                    normalizedCurrent * (1 - strength), // R: increases with distance
-                    0.1 + strength * 0.4,             // G: constant low value
-                    0.8 - normalizedCurrent * 0.5 * strength  // B: higher for stronger fields
-                );
-            }
-
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.LineBasicMaterial({
-                vertexColors: true,
-                linewidth: 2,
-                opacity: 0.7 * normalizedCurrent,
-                transparent: true
-            });
-
-            const fieldLine = new THREE.Line(geometry, material);
-            scene.add(fieldLine);
-        }
-    };
+    if (!busbarData) {
+        return (
+            <div style={{ height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="h6" color="textSecondary">No busbar data available for visualization</Typography>
+            </div>
+        );
+    }
 
     return (
         <div
             ref={mountRef}
             style={{
                 width: '100%',
-                height: '500px', // Increased height for better visibility
+                height: '500px',
                 margin: '20px 0',
                 borderRadius: '8px',
                 overflow: 'hidden',

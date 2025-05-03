@@ -1,15 +1,16 @@
-// FemFieldViewer.jsx - New component for magnetic field visualization
-import React, { useEffect, useRef, useState } from 'react';
+// src/components/FemFieldViewer.jsx
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Typography, Box, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
 
 const FemFieldViewer = ({ busbarData }) => {
+    const [viewMode, setViewMode] = useState('magnetic'); // 'magnetic', 'electric', 'thermal'
     const mountRef = useRef(null);
     const sceneRef = useRef(null);
     const rendererRef = useRef(null);
     const controlsRef = useRef(null);
-    const [viewMode, setViewMode] = useState('magnetic'); // 'magnetic', 'electric', 'thermal'
+    const animationIdRef = useRef(null);
 
     useEffect(() => {
         if (!mountRef.current || !busbarData) return;
@@ -17,39 +18,18 @@ const FemFieldViewer = ({ busbarData }) => {
         // Clean up previous scene
         if (rendererRef.current && mountRef.current) {
             try {
-                // Check if the renderer's DOM element is actually a child before removing
                 if (mountRef.current.contains(rendererRef.current.domElement)) {
                     mountRef.current.removeChild(rendererRef.current.domElement);
                 }
             } catch (error) {
-                console.log("Renderer cleanup skipped:", error.message);
+                console.error("Error removing renderer:", error);
             }
         }
 
         // Create Three.js scene
         const scene = new THREE.Scene();
         sceneRef.current = scene;
-
-        const camera = new THREE.PerspectiveCamera(
-            60,
-            mountRef.current.clientWidth / mountRef.current.clientHeight,
-            0.1,
-            1000
-        );
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        rendererRef.current = renderer;
-        renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.shadowMap.enabled = true;
-        renderer.setClearColor(0xf8f8f8);
-        mountRef.current.appendChild(renderer.domElement);
-
-        // Add controls
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controlsRef.current = controls;
+        scene.background = new THREE.Color(0xf8f8f8);
 
         // Extract dimensions
         const width = busbarData.busbarWidth || 100;
@@ -63,6 +43,28 @@ const FemFieldViewer = ({ busbarData }) => {
         const scaledWidth = width * scale;
         const scaledHeight = height * scale;
         const scaledLength = length * scale;
+
+        // Set up camera
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            mountRef.current.clientWidth / mountRef.current.clientHeight,
+            0.1,
+            1000
+        );
+
+        // Set up renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        rendererRef.current = renderer;
+        renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        mountRef.current.appendChild(renderer.domElement);
+
+        // Add controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controlsRef.current = controls;
 
         // Create busbar geometry
         const busbarGeometry = new THREE.BoxGeometry(
@@ -82,21 +84,6 @@ const FemFieldViewer = ({ busbarData }) => {
         busbar.receiveShadow = true;
         scene.add(busbar);
 
-        // Add field visualization based on view mode
-        switch (viewMode) {
-            case 'magnetic':
-                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData);
-                break;
-            case 'electric':
-                addElectricFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData);
-                break;
-            case 'thermal':
-                addThermalFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData);
-                break;
-            default:
-                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData);
-        }
-
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
@@ -111,23 +98,49 @@ const FemFieldViewer = ({ busbarData }) => {
         camera.lookAt(busbar.position);
         controls.update();
 
-        // Animation loop
-        let animationId;
-        const animate = () => {
-            animationId = requestAnimationFrame(animate);
+        // Create list of disposable objects
+        const disposables = [busbarGeometry, busbarMaterial];
+
+        // Add field visualization based on view mode
+        switch (viewMode) {
+            case 'magnetic':
+                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                break;
+            case 'electric':
+                addElectricFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                break;
+            case 'thermal':
+                addThermalFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                break;
+            default:
+                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+        }
+
+        // Animation loop with custom updates
+        const animate = (time) => {
+            animationIdRef.current = requestAnimationFrame(animate);
+
+            // Run any custom animations (like for thermal waves)
+            if (scene.userData.customUpdate) {
+                scene.userData.customUpdate(time);
+            }
+
             controls.update();
             renderer.render(scene, camera);
         };
 
-        animate();
+        animate(0);
 
         // Handle window resize
         const handleResize = () => {
             if (!mountRef.current) return;
 
-            camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+            const width = mountRef.current.clientWidth;
+            const height = mountRef.current.clientHeight;
+
+            camera.aspect = width / height;
             camera.updateProjectionMatrix();
-            renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+            renderer.setSize(width, height);
         };
 
         window.addEventListener('resize', handleResize);
@@ -135,7 +148,10 @@ const FemFieldViewer = ({ busbarData }) => {
         // Cleanup
         return () => {
             window.removeEventListener('resize', handleResize);
-            cancelAnimationFrame(animationId);
+
+            if (animationIdRef.current) {
+                cancelAnimationFrame(animationIdRef.current);
+            }
 
             if (rendererRef.current && mountRef.current) {
                 try {
@@ -143,7 +159,7 @@ const FemFieldViewer = ({ busbarData }) => {
                         mountRef.current.removeChild(rendererRef.current.domElement);
                     }
                 } catch (error) {
-                    console.log("Renderer cleanup skipped:", error.message);
+                    console.error("Error removing renderer:", error);
                 }
             }
 
@@ -151,18 +167,32 @@ const FemFieldViewer = ({ busbarData }) => {
                 controlsRef.current.dispose();
             }
 
-            // Dispose geometries and materials
-            busbarGeometry.dispose();
-            busbarMaterial.dispose();
+            // Dispose of all created objects
+            disposables.forEach(item => {
+                if (item && typeof item.dispose === 'function') {
+                    item.dispose();
+                }
+            });
 
             if (sceneRef.current) {
+                sceneRef.current.traverse((object) => {
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(mat => mat.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
+                    }
+                });
+
                 sceneRef.current.clear();
             }
         };
     }, [busbarData, viewMode]);
 
     // Function to add magnetic field visualization
-    const addMagneticFieldVisualization = (scene, busbar, width, height, length, data) => {
+    const addMagneticFieldVisualization = (scene, busbar, width, height, length, data, disposables) => {
         const current = data.current || 1000;
         const fieldStrength = Math.min(Math.max(current / 5000, 0.2), 1.5);
 
@@ -196,6 +226,7 @@ const FemFieldViewer = ({ busbarData }) => {
             // Create tube geometry for the field line
             const curve = new THREE.CatmullRomCurve3(points);
             const geometry = new THREE.TubeGeometry(curve, 100, fieldStrength * 0.3, 8, false);
+            disposables.push(geometry);
 
             // Create gradient material
             const colorStart = new THREE.Color(0x0000ff); // Blue
@@ -217,6 +248,7 @@ const FemFieldViewer = ({ busbarData }) => {
                 opacity: 0.7,
                 side: THREE.DoubleSide
             });
+            disposables.push(material);
 
             const tube = new THREE.Mesh(geometry, material);
             scene.add(tube);
@@ -248,7 +280,7 @@ const FemFieldViewer = ({ busbarData }) => {
     };
 
     // Function to add electric field visualization
-    const addElectricFieldVisualization = (scene, busbar, width, height, length, data) => {
+    const addElectricFieldVisualization = (scene, busbar, width, height, length, data, disposables) => {
         const voltage = data.voltage || 10;
         const fieldStrength = Math.min(Math.max(voltage / 100, 0.2), 1.5);
 
@@ -274,12 +306,15 @@ const FemFieldViewer = ({ busbarData }) => {
 
             // Create line
             const lineGeometry = new THREE.BufferGeometry().setFromPoints([startPoint, endPoint]);
+            disposables.push(lineGeometry);
+
             const lineMaterial = new THREE.LineBasicMaterial({
                 color: 0x00ffff,
                 linewidth: 2,
                 opacity: 0.7,
                 transparent: true
             });
+            disposables.push(lineMaterial);
 
             const line = new THREE.Line(lineGeometry, lineMaterial);
             scene.add(line);
@@ -307,12 +342,15 @@ const FemFieldViewer = ({ busbarData }) => {
             const radius = (i / numSurfaces) * maxRadius * 0.8;
 
             const surfaceGeometry = new THREE.TorusGeometry(radius, 0.2, 16, 100);
+            disposables.push(surfaceGeometry);
+
             const surfaceMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(1 - i / numSurfaces, i / numSurfaces, 1),
                 transparent: true,
                 opacity: 0.3,
                 wireframe: false
             });
+            disposables.push(surfaceMaterial);
 
             const torus = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
             torus.rotation.x = Math.PI / 2;
@@ -321,7 +359,7 @@ const FemFieldViewer = ({ busbarData }) => {
     };
 
     // Function to add thermal field visualization
-    const addThermalFieldVisualization = (scene, busbar, width, height, length, data) => {
+    const addThermalFieldVisualization = (scene, busbar, width, height, length, data, disposables) => {
         const temperatureRise = data.temperatureRise || 40;
         const maxTemp = data.maxAllowableTemperature || 90;
         const normalizedTemp = Math.min(temperatureRise / maxTemp, 1);
@@ -339,6 +377,7 @@ const FemFieldViewer = ({ busbarData }) => {
             height * 1.2,
             length * 1.2
         );
+        disposables.push(auraGeometry);
 
         const auraMaterial = new THREE.MeshBasicMaterial({
             color: new THREE.Color(1, 0.5, 0),
@@ -346,13 +385,16 @@ const FemFieldViewer = ({ busbarData }) => {
             opacity: normalizedTemp * 0.4,
             wireframe: true
         });
+        disposables.push(auraMaterial);
 
         const aura = new THREE.Mesh(auraGeometry, auraMaterial);
         scene.add(aura);
 
         // Add heat particles
-        const particleCount = Math.floor(1000 * normalizedTemp);
+        const particleCount = Math.floor(500 * normalizedTemp);
         const particleGeometry = new THREE.BufferGeometry();
+        disposables.push(particleGeometry);
+
         const particlePositions = [];
         const particleColors = [];
 
@@ -360,12 +402,12 @@ const FemFieldViewer = ({ busbarData }) => {
             // Random position around busbar
             const distance = Math.random() * width * 3;
             const angle = Math.random() * Math.PI * 2;
-            const height = (Math.random() - 0.5) * 2;
+            const heightPos = (Math.random() - 0.5) * 2;
             const lengthPos = (Math.random() - 0.5) * length;
 
             particlePositions.push(
                 Math.cos(angle) * distance,
-                Math.sin(angle) * distance + height * 10,
+                Math.sin(angle) * distance + heightPos * 10,
                 lengthPos
             );
 
@@ -387,6 +429,7 @@ const FemFieldViewer = ({ busbarData }) => {
             transparent: true,
             opacity: 0.6
         });
+        disposables.push(particleMaterial);
 
         const particles = new THREE.Points(particleGeometry, particleMaterial);
         scene.add(particles);
@@ -398,10 +441,9 @@ const FemFieldViewer = ({ busbarData }) => {
         for (let i = 0; i < waveCount; i++) {
             const waveGeometry = new THREE.SphereGeometry(
                 width * (1 + i * 0.5),
-                16, 16,
-                0, Math.PI * 2,
-                0, Math.PI * 2
+                16, 16
             );
+            disposables.push(waveGeometry);
 
             const waveMaterial = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(1, 0.5, 0),
@@ -409,27 +451,31 @@ const FemFieldViewer = ({ busbarData }) => {
                 transparent: true,
                 opacity: (1 - i / waveCount) * 0.3 * normalizedTemp
             });
+            disposables.push(waveMaterial);
 
             const wave = new THREE.Mesh(waveGeometry, waveMaterial);
             waves.push(wave);
             scene.add(wave);
         }
 
-        // Animate waves expanding
-        const animateWaves = () => {
+        // Create animation for waves
+        let lastTime = 0;
+        const updateWaves = (time) => {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
             waves.forEach((wave, index) => {
-                wave.scale.set(
-                    1 + 0.1 * Math.sin(Date.now() * 0.001 + index),
-                    1 + 0.1 * Math.sin(Date.now() * 0.001 + index),
-                    1 + 0.1 * Math.sin(Date.now() * 0.001 + index)
-                );
+                const scale = 1 + 0.1 * Math.sin(time * 0.001 + index);
+                wave.scale.set(scale, scale, scale);
             });
 
-            particles.rotation.y += 0.001;
-            requestAnimationFrame(animateWaves);
+            if (particles) {
+                particles.rotation.y += 0.001 * deltaTime;
+            }
         };
 
-        animateWaves();
+        // Store the update function for the animation loop
+        scene.userData.customUpdate = updateWaves;
     };
 
     const handleViewModeChange = (event) => {

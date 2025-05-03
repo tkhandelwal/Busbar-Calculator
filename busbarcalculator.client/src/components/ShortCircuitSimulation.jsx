@@ -1,5 +1,5 @@
 ﻿// src/components/ShortCircuitSimulation.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Paper,
     Typography,
@@ -17,10 +17,11 @@ import {
     Card,
     CardContent
 } from '@mui/material';
-import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import BoltIcon from '@mui/icons-material/Bolt';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PropTypes from 'prop-types';
-import { TimerOutlined, BoltOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
 
 // Helper function to safely format numbers with toFixed
 const safeToFixed = (value, digits = 2) => {
@@ -72,8 +73,6 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
         setError(null);
 
         try {
-            // In a real implementation, this would call your API
-            // For this example, we'll simulate the API response
             await simulateShortCircuit();
         } catch (err) {
             setError(`Simulation failed: ${err.message}`);
@@ -88,8 +87,10 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
             // Simulate network delay
             setTimeout(() => {
                 // Create simulated time-based data
-                const timePoints = Array.from({ length: simulationParams.timeSteps },
-                    (_, i) => i * (simulationParams.duration / (simulationParams.timeSteps - 1)));
+                const timePoints = Array.from(
+                    { length: simulationParams.timeSteps },
+                    (_, i) => i * (simulationParams.duration / (simulationParams.timeSteps - 1))
+                );
 
                 // Create simulated current values with initial peak and decay
                 const currentValues = timePoints.map(t => {
@@ -109,7 +110,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                 // Calculate temperature rise over time
                 const temperatureValues = timePoints.map((t, index) => {
                     // Simplified temperature model that increases with time and current
-                    const baseTemperature = busbarData.ambientTemperature;
+                    const baseTemperature = busbarData.ambientTemperature || 40;
                     const powerLoss = Math.pow(currentValues[index] / 1000, 2) * 0.05; // Simplified I²R
                     return baseTemperature + powerLoss * t * 10;
                 });
@@ -158,18 +159,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
             }
         }
 
-        return {
-            xAxis: [{ data: sampledPoints, label: 'Time (s)' }],
-            series: [
-                {
-                    data: sampledValues,
-                    label: selectedParameter === 'current' ? 'Current (kA)' :
-                        selectedParameter === 'force' ? 'Force (N)' : 'Temperature (°C)',
-                    color: selectedParameter === 'current' ? '#2196f3' :
-                        selectedParameter === 'force' ? '#ff9800' : '#f44336'
-                }
-            ]
-        };
+        return { sampledPoints, sampledValues };
     };
 
     return (
@@ -245,7 +235,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                         color="primary"
                         onClick={runSimulation}
                         disabled={loading || !busbarData}
-                        startIcon={loading ? <CircularProgress size={20} /> : <TimerOutlined />}
+                        startIcon={loading ? <CircularProgress size={20} /> : <TimerOutlinedIcon />}
                         sx={{ mt: 2, mb: 4 }}
                         fullWidth
                     >
@@ -273,7 +263,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             <Card>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                        <BoltOutlined color="primary" sx={{ mr: 1 }} />
+                                        <BoltIcon color="primary" sx={{ mr: 1 }} />
                                         <Typography variant="h6" component="div">
                                             Peak Current
                                         </Typography>
@@ -292,7 +282,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             <Card>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                        <TimerOutlined color="warning" sx={{ mr: 1 }} />
+                                        <TimerOutlinedIcon color="warning" sx={{ mr: 1 }} />
                                         <Typography variant="h6" component="div">
                                             Maximum Force
                                         </Typography>
@@ -311,7 +301,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             <Card>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                        <LocalFireDepartmentOutlined color="error" sx={{ mr: 1 }} />
+                                        <LocalFireDepartmentIcon color="error" sx={{ mr: 1 }} />
                                         <Typography variant="h6" component="div">
                                             Maximum Temperature
                                         </Typography>
@@ -320,7 +310,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                                         {safeToFixed(simulationResults.maxTemperature, 1)} °C
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {simulationResults.maxTemperature > busbarData.maxAllowableTemperature ?
+                                        {simulationResults.maxTemperature > (busbarData.maxAllowableTemperature || 90) ?
                                             'Exceeds' : 'Within'} maximum allowable temperature
                                     </Typography>
                                 </CardContent>
@@ -342,22 +332,25 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             </Select>
                         </FormControl>
 
-                        <Box sx={{ height: 400, width: '100%' }}>
-                            <LineChart
-                                dataset={getChartData().series[0].data}
-                                xAxis={[{
-                                    data: getChartData().xAxis[0].data,
-                                    label: 'Time (s)'
-                                }]}
-                                series={[{
-                                    data: getChartData().series[0].data,
-                                    label: getChartData().series[0].label,
-                                    color: getChartData().series[0].color,
-                                    area: true
-                                }]}
-                                height={400}
-                            />
-                        </Box>
+                        {getChartData() && (
+                            <Box sx={{ height: 400, width: '100%' }}>
+                                <LineChart
+                                    xAxis={[{
+                                        data: getChartData().sampledPoints,
+                                        label: 'Time (s)'
+                                    }]}
+                                    series={[{
+                                        data: getChartData().sampledValues,
+                                        label: selectedParameter === 'current' ? 'Current (kA)' :
+                                            selectedParameter === 'force' ? 'Force (N)' : 'Temperature (°C)',
+                                        color: selectedParameter === 'current' ? '#2196f3' :
+                                            selectedParameter === 'force' ? '#ff9800' : '#f44336',
+                                        area: true
+                                    }]}
+                                    height={400}
+                                />
+                            </Box>
+                        )}
                     </Box>
 
                     <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
@@ -366,13 +359,13 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                         </Typography>
                         <Typography variant="body2" paragraph>
                             This simulation shows the dynamic behavior of your busbar during a short circuit event over {simulationParams.duration} seconds.
-                            {simulationResults.maxTemperature > busbarData.maxAllowableTemperature ?
-                                ` The temperature exceeds the maximum allowable limit of ${busbarData.maxAllowableTemperature}°C, indicating potential thermal stress issues.` :
-                                ` The maximum temperature remains below the allowable limit of ${busbarData.maxAllowableTemperature}°C.`
+                            {simulationResults.maxTemperature > (busbarData.maxAllowableTemperature || 90) ?
+                                ` The temperature exceeds the maximum allowable limit of ${busbarData.maxAllowableTemperature || 90}°C, indicating potential thermal stress issues.` :
+                                ` The maximum temperature remains below the allowable limit of ${busbarData.maxAllowableTemperature || 90}°C.`
                             }
                         </Typography>
                         <Typography variant="body2">
-                            {simulationResults.maxForce > busbarData.shortCircuitForce * 1.5 ?
+                            {simulationResults.maxForce > (busbarData.shortCircuitForce * 1.5) ?
                                 'The dynamic forces during short circuit are significantly higher than static calculations, suggesting that additional mechanical support may be required.' :
                                 'The dynamic forces are within acceptable limits compared to the static calculations.'
                             }

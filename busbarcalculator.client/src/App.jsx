@@ -1,9 +1,9 @@
-// src/App.jsx
 import React, { useState } from 'react';
 import {
     Container, Typography, Box, Paper, Grid, Card, CardContent,
     Divider, AppBar, Toolbar, IconButton, Tabs, Tab, CircularProgress,
-    Button, Tooltip, List, ListItem, ListItemText
+    Button, Tooltip, List, ListItem, ListItemText, MenuList, MenuItem,
+    Popover, ListItemIcon
 } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -16,6 +16,9 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import ScienceIcon from '@mui/icons-material/Science';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import FileOpenIcon from '@mui/icons-material/FileOpen';
+import SettingsIcon from '@mui/icons-material/Settings';
+import HelpIcon from '@mui/icons-material/Help';
 
 import BusbarForm from './components/BusbarForm';
 import BusbarVisualization from './components/BusbarVisualization';
@@ -53,7 +56,7 @@ const formatKey = (key) => {
 // Main theme
 const theme = createTheme({
     palette: {
-        mode: 'light',
+        mode: 'dark',
         primary: {
             main: '#1976d2',
         },
@@ -61,7 +64,8 @@ const theme = createTheme({
             main: '#dc004e',
         },
         background: {
-            default: '#f5f5f5',
+            default: '#121212',
+            paper: '#1e1e1e',
         },
     },
     typography: {
@@ -73,6 +77,15 @@ const theme = createTheme({
             fontWeight: 500,
         },
     },
+    components: {
+        MuiPaper: {
+            styleOverrides: {
+                root: {
+                    backgroundImage: 'none',
+                },
+            },
+        },
+    },
 });
 
 function App() {
@@ -81,8 +94,25 @@ function App() {
     const [activeResultsTab, setActiveResultsTab] = useState(0);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [showPowerCableCalculator, setShowPowerCableCalculator] = useState(false);
+    const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+
+    const handleMenuClick = (event) => {
+        setMenuAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setMenuAnchorEl(null);
+    };
 
     const handleTabChange = (event, newValue) => {
+        // If clicking on the Power Cable Calculator tab
+        if (newValue === 2) {
+            setShowPowerCableCalculator(true);
+        } else {
+            // If switching to another tab, hide the Power Cable Calculator
+            setShowPowerCableCalculator(false);
+        }
+
         setActiveTab(newValue);
     };
 
@@ -123,21 +153,67 @@ function App() {
         busbarData.advancedResults.TemperatureDistribution
     );
 
-    const togglePowerCableCalculator = () => {
-        setShowPowerCableCalculator(!showPowerCableCalculator);
-    };
-
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
             <AppBar position="static">
                 <Toolbar>
-                    <IconButton edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }}>
+                    <IconButton
+                        edge="start"
+                        color="inherit"
+                        aria-label="menu"
+                        sx={{ mr: 2 }}
+                        onClick={handleMenuClick}
+                    >
                         <MenuIcon />
                     </IconButton>
+
+                    <Popover
+                        open={Boolean(menuAnchorEl)}
+                        anchorEl={menuAnchorEl}
+                        onClose={handleMenuClose}
+                        anchorOrigin={{
+                            vertical: 'bottom',
+                            horizontal: 'left',
+                        }}
+                        transformOrigin={{
+                            vertical: 'top',
+                            horizontal: 'left',
+                        }}
+                    >
+                        <MenuList>
+                            <MenuItem onClick={handleMenuClose}>
+                                <ListItemIcon>
+                                    <SaveIcon fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Save Configuration</ListItemText>
+                            </MenuItem>
+                            <MenuItem onClick={handleMenuClose}>
+                                <ListItemIcon>
+                                    <FileOpenIcon fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Load Configuration</ListItemText>
+                            </MenuItem>
+                            <Divider />
+                            <MenuItem onClick={handleMenuClose}>
+                                <ListItemIcon>
+                                    <SettingsIcon fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Settings</ListItemText>
+                            </MenuItem>
+                            <MenuItem onClick={handleMenuClose}>
+                                <ListItemIcon>
+                                    <HelpIcon fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Help</ListItemText>
+                            </MenuItem>
+                        </MenuList>
+                    </Popover>
+
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                        Busbar Calculator
+                        Electrical Engineering Tools
                     </Typography>
+
                     {busbarData && (
                         <>
                             <Tooltip title="Save Configuration">
@@ -162,14 +238,20 @@ function App() {
             <Container maxWidth="lg">
                 <Box sx={{ my: 4 }}>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                        <Tabs value={activeTab} onChange={handleTabChange} aria-label="busbar calculator tabs">
-                            <Tab label="Calculator" icon={<CalculateIcon />} iconPosition="start" />
-                            {busbarData && <Tab label="Results" />}
-                            <Tab label="Power Cable Calculator" onClick={togglePowerCableCalculator} />
+                        <Tabs
+                            value={activeTab}
+                            onChange={handleTabChange}
+                            aria-label="calculator tabs"
+                            variant="scrollable"
+                            scrollButtons="auto"
+                        >
+                            <Tab label="Busbar Calculator" icon={<CalculateIcon />} iconPosition="start" />
+                            {busbarData && <Tab label="Busbar Results" />}
+                            <Tab label="Power Cable Calculator" icon={<CalculateIcon />} iconPosition="start" />
                         </Tabs>
                     </Box>
 
-                    {/* Calculator Tab */}
+                    {/* Busbar Calculator Tab */}
                     <Box role="tabpanel" hidden={activeTab !== 0} sx={{ py: 3 }}>
                         {activeTab === 0 && (
                             <>
@@ -184,7 +266,7 @@ function App() {
                         )}
                     </Box>
 
-                    {/* Results Tab */}
+                    {/* Busbar Results Tab */}
                     <Box role="tabpanel" hidden={activeTab !== 1} sx={{ py: 3 }}>
                         {activeTab === 1 && busbarData && (
                             <>
@@ -305,7 +387,7 @@ function App() {
                                                                                 elevation={2}
                                                                                 sx={{
                                                                                     p: 2,
-                                                                                    bgcolor: index === 0 ? 'primary.light' : 'background.paper',
+                                                                                    bgcolor: index === 0 ? 'primary.dark' : 'background.paper',
                                                                                     color: index === 0 ? 'primary.contrastText' : 'text.primary'
                                                                                 }}
                                                                             >
@@ -514,8 +596,18 @@ function App() {
                     </Box>
 
                     {/* Power Cable Calculator Tab */}
-                    <Box role="tabpanel" hidden={!showPowerCableCalculator} sx={{ py: 3 }}>
-                        {showPowerCableCalculator && <PowerCableCalculator />}
+                    <Box role="tabpanel" hidden={activeTab !== 2} sx={{ py: 3 }}>
+                        {activeTab === 2 && (
+                            <>
+                                <Typography variant="h4" component="h1" gutterBottom align="center">
+                                    Power Cable Calculator
+                                </Typography>
+                                <Typography variant="body1" align="center" color="textSecondary" paragraph>
+                                    Calculate and select power cables based on current, voltage drop, and installation parameters.
+                                </Typography>
+                                <PowerCableCalculator />
+                            </>
+                        )}
                     </Box>
                 </Box>
             </Container>

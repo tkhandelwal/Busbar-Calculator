@@ -4,8 +4,9 @@ import {
     Paper, Typography, Grid, TextField, Button,
     FormControl, InputLabel, Select, MenuItem,
     Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, Box
+    TableHead, TableRow, Box, Divider
 } from '@mui/material';
+import PowerCableVisualization from './PowerCableVisualization';
 
 const PowerCableCalculator = () => {
     const [cableData, setCableData] = useState({
@@ -28,6 +29,12 @@ const PowerCableCalculator = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Validate inputs
+        if (!cableData.current || !cableData.voltage || !cableData.length) {
+            alert("Please fill in all required fields");
+            return;
+        }
 
         // Calculate cable parameters
         const { current, voltage, length, cableType, insulation, installationMethod, temperature, voltageDrop } = cableData;
@@ -228,34 +235,45 @@ const PowerCableCalculator = () => {
                         Minimum required area for voltage drop: {results.requiredAreaForVD} mm²
                     </Typography>
 
+                    {/* Add visualization */}
+                    <PowerCableVisualization cableData={cableData} results={results} />
+
+                    <Divider sx={{ my: 2 }} />
+
                     <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>
                         Suitable Cable Options:
                     </Typography>
 
-                    <TableContainer>
-                        <Table sx={{ minWidth: 650 }}>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Cable Size (mm²)</TableCell>
-                                    <TableCell>Ampacity (A)</TableCell>
-                                    <TableCell>Resistance (Ω)</TableCell>
-                                    <TableCell>Voltage Drop (%)</TableCell>
-                                    <TableCell>Power Loss (W)</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {results.suitableCables.map((cable) => (
-                                    <TableRow key={cable.size}>
-                                        <TableCell>{cable.size}</TableCell>
-                                        <TableCell>{cable.ampacity}</TableCell>
-                                        <TableCell>{cable.resistance}</TableCell>
-                                        <TableCell>{cable.voltageDrop}</TableCell>
-                                        <TableCell>{cable.powerLoss}</TableCell>
+                    {results.suitableCables && results.suitableCables.length > 0 ? (
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Cable Size (mm²)</TableCell>
+                                        <TableCell>Ampacity (A)</TableCell>
+                                        <TableCell>Resistance (Ω)</TableCell>
+                                        <TableCell>Voltage Drop (%)</TableCell>
+                                        <TableCell>Power Loss (W)</TableCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                </TableHead>
+                                <TableBody>
+                                    {results.suitableCables.map((cable) => (
+                                        <TableRow key={cable.size}>
+                                            <TableCell>{cable.size}</TableCell>
+                                            <TableCell>{cable.ampacity}</TableCell>
+                                            <TableCell>{cable.resistance}</TableCell>
+                                            <TableCell>{cable.voltageDrop}</TableCell>
+                                            <TableCell>{cable.powerLoss}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    ) : (
+                        <Typography color="error">
+                            No suitable cable found for the given parameters. Try increasing the maximum voltage drop or decreasing the current/length.
+                        </Typography>
+                    )}
                 </Box>
             )}
         </Paper>

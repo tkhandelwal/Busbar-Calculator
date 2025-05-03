@@ -41,9 +41,9 @@ const EconomicComparison = ({ busbarData }) => {
 
         // Current busbar configuration
         const currentMaterial = busbarData.material || 'Copper';
-        const width = busbarData.busbarWidth / 1000; // mm to m
-        const thickness = busbarData.busbarThickness / 1000; // mm to m
-        const length = busbarData.busbarLength / 1000; // mm to m
+        const width = (busbarData.busbarWidth || 100) / 1000; // mm to m
+        const thickness = (busbarData.busbarThickness || 10) / 1000; // mm to m
+        const length = (busbarData.busbarLength || 1000) / 1000; // mm to m
         const volume = width * thickness * length; // m³
 
         // Calculate weights

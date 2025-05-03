@@ -1,4 +1,3 @@
-// Enhanced HeatmapVisualization.jsx
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Typography, Box } from '@mui/material';
@@ -11,7 +10,7 @@ const HeatmapVisualization = ({ distributionData, width = 700, height = 350, tit
         if (!distributionData || !canvasRef.current) return;
 
         // Clean up any previous renderer
-        if (rendererRef.current) {
+        if (rendererRef.current && canvasRef.current.contains(rendererRef.current.domElement)) {
             canvasRef.current.removeChild(rendererRef.current.domElement);
         }
 
@@ -98,15 +97,33 @@ const HeatmapVisualization = ({ distributionData, width = 700, height = 350, tit
         return () => {
             // Clean up
             if (rendererRef.current && canvasRef.current) {
-                canvasRef.current.removeChild(rendererRef.current.domElement);
+                try {
+                    if (canvasRef.current.contains(rendererRef.current.domElement)) {
+                        canvasRef.current.removeChild(rendererRef.current.domElement);
+                    }
+                } catch (error) {
+                    console.error("Error removing renderer:", error);
+                }
             }
+
             // Remove any overlay elements
             const labelsContainer = document.getElementById('heatmap-labels-container');
             if (labelsContainer) {
                 labelsContainer.innerHTML = '';
             }
-        };
 
+            // Dispose of resources
+            scene.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(mat => mat.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+        };
     }, [distributionData, title, width, height]);
 
     // Function to create heatmap mesh with WebGL
