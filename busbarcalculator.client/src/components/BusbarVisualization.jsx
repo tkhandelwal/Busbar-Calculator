@@ -2,8 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { Typography } from '@mui/material';
-
+import { Typography, Box } from '@mui/material';
 
 const BusbarVisualization = ({ busbarData }) => {
     const mountRef = useRef(null);
@@ -11,6 +10,7 @@ const BusbarVisualization = ({ busbarData }) => {
     const sceneRef = useRef(null);
     const rendererRef = useRef(null);
     const controlsRef = useRef(null);
+    const objectsToDisposeRef = useRef([]);
 
     useEffect(() => {
         if (!mountRef.current || !busbarData) return;
@@ -19,6 +19,8 @@ const BusbarVisualization = ({ busbarData }) => {
         if (rendererRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
             mountRef.current.removeChild(rendererRef.current.domElement);
         }
+
+        const cleanupObjects = [];
 
         // Initialize Three.js scene
         const scene = new THREE.Scene();
@@ -75,9 +77,12 @@ const BusbarVisualization = ({ busbarData }) => {
             metalness: 0.7,
             roughness: 0.3
         });
+        cleanupObjects.push(material);
 
         // Create busbar geometry
         const geometry = new THREE.BoxGeometry(scaledWidth, scaledThickness, scaledLength);
+        cleanupObjects.push(geometry);
+
         const busbar = new THREE.Mesh(geometry, material);
         busbar.castShadow = true;
         busbar.receiveShadow = true;
@@ -94,12 +99,16 @@ const BusbarVisualization = ({ busbarData }) => {
 
         // Add a ground plane for shadow casting
         const groundGeometry = new THREE.PlaneGeometry(scaledLength * 3, scaledLength * 3);
+        cleanupObjects.push(groundGeometry);
+
         const groundMaterial = new THREE.MeshStandardMaterial({
             color: 0x444444,
             roughness: 0.8,
             metalness: 0.2,
             side: THREE.DoubleSide
         });
+        cleanupObjects.push(groundMaterial);
+
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = Math.PI / 2;
         ground.position.y = -scaledThickness * 2;
@@ -116,10 +125,49 @@ const BusbarVisualization = ({ busbarData }) => {
         camera.lookAt(busbar.position);
         controls.update();
 
+        // Add info about the busbar dimensions
+        const textCanvas = document.createElement('canvas');
+        const context = textCanvas.getContext('2d');
+        textCanvas.width = 512;
+        textCanvas.height = 128;
+        context.fillStyle = '#ffffff';
+        context.font = '24px Arial';
+        context.fillText(`${width} × ${thickness} × ${length} mm`, 10, 40);
+        context.fillText(`Material: ${busbarData.material || 'Copper'}`, 10, 80);
+
+        const textTexture = new THREE.CanvasTexture(textCanvas);
+        cleanupObjects.push(textTexture);
+
+        const textMaterial = new THREE.MeshBasicMaterial({
+            map: textTexture,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+        cleanupObjects.push(textMaterial);
+
+        const textGeometry = new THREE.PlaneGeometry(10, 2.5);
+        cleanupObjects.push(textGeometry);
+
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textMesh.position.set(0, scaledThickness * 4, 0);
+        scene.add(textMesh);
+
+        // Make text always face camera
+        const updateLabelOrientation = () => {
+            textMesh.lookAt(camera.position);
+        };
+
+        // Add listener for camera movement
+        controls.addEventListener('change', updateLabelOrientation);
+
+        // Store disposal objects
+        objectsToDisposeRef.current = cleanupObjects;
+
         // Animation loop
         const animate = () => {
             requestRef.current = requestAnimationFrame(animate);
             controls.update();
+            updateLabelOrientation();
             renderer.render(scene, camera);
         };
 
@@ -143,52 +191,67 @@ const BusbarVisualization = ({ busbarData }) => {
         return () => {
             window.removeEventListener('resize', handleResize);
 
+            if (controlsRef.current) {
+                controlsRef.current.removeEventListener('change', updateLabelOrientation);
+                controlsRef.current.dispose();
+                controlsRef.current = null;
+            }
+
             if (requestRef.current) {
                 cancelAnimationFrame(requestRef.current);
+                requestRef.current = null;
             }
+
+            // Dispose of all Three.js objects
+            objectsToDisposeRef.current.forEach(object => {
+                if (object && object.dispose) {
+                    object.dispose();
+                }
+            });
+            objectsToDisposeRef.current = [];
 
             if (rendererRef.current && mountRef.current) {
                 if (mountRef.current.contains(rendererRef.current.domElement)) {
                     mountRef.current.removeChild(rendererRef.current.domElement);
                 }
+                rendererRef.current = null;
             }
 
-            if (controlsRef.current) {
-                controlsRef.current.dispose();
-            }
-
-            // Dispose of geometries and materials
-            geometry.dispose();
-            material.dispose();
-            groundGeometry.dispose();
-            groundMaterial.dispose();
-
+            // Clear scene
             if (sceneRef.current) {
-                sceneRef.current.clear();
+                while (sceneRef.current.children.length > 0) {
+                    sceneRef.current.remove(sceneRef.current.children[0]);
+                }
+                sceneRef.current = null;
             }
         };
     }, [busbarData]);
 
     if (!busbarData) {
         return (
-            <div style={{ height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5', borderRadius: 2 }}>
                 <Typography variant="h6" color="textSecondary">No busbar data available for visualization</Typography>
-            </div>
+            </Box>
         );
     }
 
     return (
-        <div
-            ref={mountRef}
-            style={{
-                width: '100%',
-                height: '500px',
-                margin: '20px 0',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-            }}
-        />
+        <Box sx={{ position: 'relative' }}>
+            <div
+                ref={mountRef}
+                style={{
+                    width: '100%',
+                    height: '500px',
+                    margin: '20px 0',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                }}
+            />
+            <Typography variant="caption" align="center" sx={{ display: 'block', mt: 1 }}>
+                Click and drag to rotate the 3D model
+            </Typography>
+        </Box>
     );
 };
 

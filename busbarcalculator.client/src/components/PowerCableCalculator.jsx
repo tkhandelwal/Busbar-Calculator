@@ -4,7 +4,7 @@ import {
     Paper, Typography, Grid, TextField, Button,
     FormControl, InputLabel, Select, MenuItem,
     Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, Box, Divider
+    TableHead, TableRow, Box, Divider, Alert, CircularProgress
 } from '@mui/material';
 import PowerCableVisualization from './PowerCableVisualization';
 
@@ -21,29 +21,69 @@ const PowerCableCalculator = () => {
     });
 
     const [results, setResults] = useState(null);
+    const [isCalculating, setIsCalculating] = useState(false);
+    const [error, setError] = useState(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setCableData(prev => ({ ...prev, [name]: value }));
     };
 
+    const validateInputs = () => {
+        const { current, voltage, length } = cableData;
+        const errors = {};
+
+        if (!current || isNaN(current) || Number(current) <= 0) {
+            errors.current = "Current must be a positive number";
+        }
+
+        if (!voltage || isNaN(voltage) || Number(voltage) <= 0) {
+            errors.voltage = "Voltage must be a positive number";
+        }
+
+        if (!length || isNaN(length) || Number(length) <= 0) {
+            errors.length = "Length must be a positive number";
+        }
+
+        return { isValid: Object.keys(errors).length === 0, errors };
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        const { isValid, errors } = validateInputs();
 
-        // Validate inputs
-        if (!cableData.current || !cableData.voltage || !cableData.length) {
-            alert("Please fill in all required fields");
+        if (!isValid) {
+            setError(`Please fix the following errors: ${Object.values(errors).join(', ')}`);
             return;
         }
 
-        // Calculate cable parameters
-        const { current, voltage, length, cableType, insulation, installationMethod, temperature, voltageDrop } = cableData;
+        setError(null);
+        setIsCalculating(true);
+
+        // Use setTimeout to simulate API call and avoid UI freezing
+        setTimeout(() => {
+            try {
+                calculateCableParameters();
+                setIsCalculating(false);
+            } catch (err) {
+                setError("An error occurred during calculation");
+                setIsCalculating(false);
+            }
+        }, 800);
+    };
+
+    const calculateCableParameters = () => {
+        // Parse inputs, ensuring we have numeric values
+        const current = Number(cableData.current);
+        const voltage = Number(cableData.voltage);
+        const length = Number(cableData.length);
+        const { cableType, insulation, installationMethod, temperature, voltageDrop } = cableData;
 
         // Resistivity values (Ω·mm²/m)
         const resistivity = cableType === 'copper' ? 0.0171 : 0.0283; // copper vs aluminum
 
         // Temperature correction
-        const tempCorrectionFactor = 1 + 0.004 * (temperature - 20);
+        const tempCorrectionFactor = 1 + 0.004 * (Number(temperature) - 20);
         const correctedResistivity = resistivity * tempCorrectionFactor;
 
         // Current carrying capacity (ampacity) based on insulation and installation
@@ -62,7 +102,7 @@ const PowerCableCalculator = () => {
                         installationMethod === 'freeAir' ? 1.1 : 1.0;
 
         // Required area calculations
-        const maxVoltageDrop = voltage * (voltageDrop / 100); // Volts
+        const maxVoltageDrop = Number(voltage) * (Number(voltageDrop) / 100); // Volts
         const requiredAreaForVD = (2 * correctedResistivity * current * length) / maxVoltageDrop;
 
         // Standard cable sizes in mm²
@@ -101,6 +141,15 @@ const PowerCableCalculator = () => {
             <Typography variant="h5" gutterBottom>
                 Power Cable Calculator
             </Typography>
+            <Typography variant="body1" paragraph>
+                Calculate the appropriate cable size based on your electrical requirements.
+            </Typography>
+
+            {error && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                    {error}
+                </Alert>
+            )}
 
             <form onSubmit={handleSubmit}>
                 <Grid container spacing={3}>
@@ -113,6 +162,9 @@ const PowerCableCalculator = () => {
                             onChange={handleChange}
                             required
                             fullWidth
+                            error={!!error && !cableData.current}
+                            helperText={!cableData.current ? "Required" : ""}
+                            inputProps={{ step: "0.1", min: "0.1" }}
                         />
                     </Grid>
 
@@ -125,6 +177,9 @@ const PowerCableCalculator = () => {
                             onChange={handleChange}
                             required
                             fullWidth
+                            error={!!error && !cableData.voltage}
+                            helperText={!cableData.voltage ? "Required" : ""}
+                            inputProps={{ step: "1", min: "1" }}
                         />
                     </Grid>
 
@@ -137,6 +192,9 @@ const PowerCableCalculator = () => {
                             onChange={handleChange}
                             required
                             fullWidth
+                            error={!!error && !cableData.length}
+                            helperText={!cableData.length ? "Required" : ""}
+                            inputProps={{ step: "1", min: "1" }}
                         />
                     </Grid>
 
@@ -196,6 +254,7 @@ const PowerCableCalculator = () => {
                             value={cableData.temperature}
                             onChange={handleChange}
                             fullWidth
+                            inputProps={{ step: "1", min: "-10", max: "60" }}
                         />
                     </Grid>
 
@@ -207,7 +266,7 @@ const PowerCableCalculator = () => {
                             value={cableData.voltageDrop}
                             onChange={handleChange}
                             fullWidth
-                            inputProps={{ step: 0.1, min: 0.1, max: 10 }}
+                            inputProps={{ step: "0.1", min: "0.1", max: "10" }}
                         />
                     </Grid>
 
@@ -217,9 +276,11 @@ const PowerCableCalculator = () => {
                             variant="contained"
                             color="primary"
                             fullWidth
+                            disabled={isCalculating}
                             sx={{ mt: 2 }}
+                            startIcon={isCalculating ? <CircularProgress size={20} /> : null}
                         >
-                            Calculate
+                            {isCalculating ? 'Calculating...' : 'Calculate'}
                         </Button>
                     </Grid>
                 </Grid>
@@ -236,7 +297,9 @@ const PowerCableCalculator = () => {
                     </Typography>
 
                     {/* Add visualization */}
-                    <PowerCableVisualization cableData={cableData} results={results} />
+                    {results.suitableCables && results.suitableCables.length > 0 && (
+                        <PowerCableVisualization cableData={cableData} results={results} />
+                    )}
 
                     <Divider sx={{ my: 2 }} />
 
@@ -274,6 +337,22 @@ const PowerCableCalculator = () => {
                             No suitable cable found for the given parameters. Try increasing the maximum voltage drop or decreasing the current/length.
                         </Typography>
                     )}
+
+                    <Box sx={{ mt: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="subtitle1" color="primary" gutterBottom>
+                            Recommendation
+                        </Typography>
+                        {results.suitableCables && results.suitableCables.length > 0 ? (
+                            <Typography variant="body1">
+                                The recommended cable size is <strong>{results.suitableCables[0].size} mm²</strong> with {cableData.cableType} conductor and {cableData.insulation.toUpperCase()} insulation.
+                                This cable has an ampacity of {results.suitableCables[0].ampacity}A and will result in a voltage drop of {results.suitableCables[0].voltageDrop}%.
+                            </Typography>
+                        ) : (
+                            <Typography variant="body1">
+                                Consider using a larger cable size, shorter cable length, or allowing for a higher voltage drop percentage.
+                            </Typography>
+                        )}
+                    </Box>
                 </Box>
             )}
         </Paper>

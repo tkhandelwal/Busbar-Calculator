@@ -1,5 +1,5 @@
 ﻿// src/components/ShortCircuitSimulation.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Paper,
     Typography,
@@ -17,13 +17,13 @@ import {
     Card,
     CardContent
 } from '@mui/material';
-import { LineChart } from '@mui/x-charts/LineChart';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import BoltIcon from '@mui/icons-material/Bolt';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import PropTypes from 'prop-types';
+import LineChartWrapper from './shared/LineChartWrapper';
+import webGLContextManager from '../utils/WebGLContextManager';
 
-// Helper function to safely format numbers with toFixed
+// Helper function to safely format numbers
 const safeToFixed = (value, digits = 2) => {
     if (value === null || value === undefined || isNaN(value)) {
         return '0.00';
@@ -73,68 +73,78 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
         setError(null);
 
         try {
-            await simulateShortCircuit();
+            // Use setTimeout to give UI time to update
+            setTimeout(() => {
+                const results = simulateShortCircuit();
+                setSimulationResults(results);
+
+                if (onSimulationComplete) {
+                    onSimulationComplete(results);
+                }
+
+                setLoading(false);
+            }, 1000);
         } catch (err) {
             setError(`Simulation failed: ${err.message}`);
-        } finally {
             setLoading(false);
         }
     };
 
-    // Simulate API call with mock data
+    // Simulate Short Circuit
     const simulateShortCircuit = () => {
-        return new Promise((resolve) => {
-            // Simulate network delay
-            setTimeout(() => {
-                // Create simulated time-based data
-                const timePoints = Array.from(
-                    { length: simulationParams.timeSteps },
-                    (_, i) => i * (simulationParams.duration / (simulationParams.timeSteps - 1))
-                );
+        // Safe default values if input data is incomplete
+        const shortCircuitCurrent = parseFloat(busbarData.shortCircuitCurrent) || 50;
+        const phaseDistance = parseFloat(busbarData.phaseDistance) || 200;
+        const busbarLength = parseFloat(busbarData.busbarLength) || 1000;
+        const ambientTemp = parseFloat(busbarData.ambientTemperature) || 40;
+        const maxAllowableTemperature = parseFloat(busbarData.maxAllowableTemperature) || 90;
 
-                // Create simulated current values with initial peak and decay
-                const currentValues = timePoints.map(t => {
-                    const peakCurrent = busbarData.shortCircuitCurrent * 1000 * 2.5; // Convert kA to A with 2.5x peak factor
-                    const steadyStateCurrent = busbarData.shortCircuitCurrent * 1000 * Math.sqrt(2); // RMS to peak
-                    return peakCurrent * Math.exp(-t / 0.1) * Math.cos(2 * Math.PI * 50 * t) +
-                        steadyStateCurrent * Math.sin(2 * Math.PI * 50 * t);
-                });
+        // Create simulated time-based data
+        const timePoints = Array.from(
+            { length: simulationParams.timeSteps },
+            (_, i) => i * (simulationParams.duration / (simulationParams.timeSteps - 1))
+        );
 
-                // Calculate force values based on currents
-                const forceValues = currentValues.map(current => {
-                    // F = μ0 * I^2 * L / (2π * d) - simplified
-                    const force = 2e-7 * Math.pow(current, 2) * (busbarData.busbarLength / 1000) / (busbarData.phaseDistance / 1000);
-                    return Math.abs(force); // Force magnitude
-                });
-
-                // Calculate temperature rise over time
-                const temperatureValues = timePoints.map((t, index) => {
-                    // Simplified temperature model that increases with time and current
-                    const baseTemperature = busbarData.ambientTemperature || 40;
-                    const powerLoss = Math.pow(currentValues[index] / 1000, 2) * 0.05; // Simplified I²R
-                    return baseTemperature + powerLoss * t * 10;
-                });
-
-                const results = {
-                    timePoints,
-                    currentValues,
-                    forceValues,
-                    temperatureValues,
-                    maxCurrent: Math.max(...currentValues.map(Math.abs)),
-                    maxForce: Math.max(...forceValues),
-                    maxTemperature: Math.max(...temperatureValues)
-                };
-
-                setSimulationResults(results);
-                if (onSimulationComplete) onSimulationComplete(results);
-                resolve(results);
-            }, 1500);
+        // Create simulated current values with initial peak and decay
+        const currentValues = timePoints.map(t => {
+            const peakCurrent = shortCircuitCurrent * 1000 * 2.5; // Convert kA to A with 2.5x peak factor
+            const steadyStateCurrent = shortCircuitCurrent * 1000 * Math.sqrt(2); // RMS to peak
+            return peakCurrent * Math.exp(-t / 0.1) * Math.cos(2 * Math.PI * 50 * t) +
+                steadyStateCurrent * Math.sin(2 * Math.PI * 50 * t);
         });
+
+        // Calculate force values based on currents
+        const forceValues = currentValues.map(current => {
+            // F = μ0 * I^2 * L / (2π * d) - simplified
+            const force = 2e-7 * Math.pow(current, 2) * (busbarLength / 1000) / (phaseDistance / 1000);
+            return Math.abs(force); // Force magnitude
+        });
+
+        // Calculate temperature rise over time
+        const temperatureValues = timePoints.map((t, index) => {
+            // Simplified temperature model
+            const baseTemperature = ambientTemp;
+            const powerLoss = Math.pow(currentValues[index] / 1000, 2) * 0.05; // Simplified I²R
+            return baseTemperature + powerLoss * t * 10;
+        });
+
+        return {
+            timePoints,
+            currentValues,
+            forceValues,
+            temperatureValues,
+            maxCurrent: Math.max(...currentValues.map(Math.abs)),
+            maxForce: Math.max(...forceValues),
+            maxTemperature: Math.max(...temperatureValues)
+        };
     };
 
     // Format data for the chart
     const getChartData = () => {
-        if (!simulationResults) return null;
+        if (!simulationResults) return {
+            sampledPoints: [],
+            sampledValues: []
+        };
 
         // Reduce the number of points for better visualization
         const samplingRate = Math.max(1, Math.floor(simulationResults.timePoints.length / 50));
@@ -272,7 +282,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                                         {safeToFixed(simulationResults.maxCurrent / 1000, 1)} kA
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {(simulationResults.maxCurrent / (busbarData.shortCircuitCurrent * 1000)).toFixed(1)}× nominal short circuit current
+                                        {safeToFixed((simulationResults.maxCurrent / (busbarData.shortCircuitCurrent * 1000)), 1)}× nominal short circuit current
                                     </Typography>
                                 </CardContent>
                             </Card>
@@ -291,7 +301,7 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                                         {safeToFixed(simulationResults.maxForce / 1000, 1)} kN
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {(simulationResults.maxForce / busbarData.shortCircuitForce).toFixed(1)}× static force calculation
+                                        {safeToFixed((simulationResults.maxForce / (busbarData.shortCircuitForce || 1)), 1)}× static force calculation
                                     </Typography>
                                 </CardContent>
                             </Card>
@@ -332,24 +342,24 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
                             </Select>
                         </FormControl>
 
-                        {getChartData() && (
-                            <Box sx={{ height: 400, width: '100%' }}>
-                                <LineChart
-                                    xAxis={[{
-                                        data: getChartData().sampledPoints,
-                                        label: 'Time (s)'
-                                    }]}
-                                    series={[{
-                                        data: getChartData().sampledValues,
-                                        label: selectedParameter === 'current' ? 'Current (kA)' :
-                                            selectedParameter === 'force' ? 'Force (N)' : 'Temperature (°C)',
-                                        color: selectedParameter === 'current' ? '#2196f3' :
-                                            selectedParameter === 'force' ? '#ff9800' : '#f44336',
-                                        area: true
-                                    }]}
-                                    height={400}
-                                />
-                            </Box>
+                        {getChartData().sampledPoints.length > 0 && (
+                            <LineChartWrapper
+                                xAxis={[{
+                                    data: getChartData().sampledPoints,
+                                    label: 'Time (s)'
+                                }]}
+                                series={[{
+                                    data: getChartData().sampledValues,
+                                    label: selectedParameter === 'current' ? 'Current (kA)' :
+                                        selectedParameter === 'force' ? 'Force (N)' : 'Temperature (°C)',
+                                    color: selectedParameter === 'current' ? '#2196f3' :
+                                        selectedParameter === 'force' ? '#ff9800' : '#f44336',
+                                    area: true
+                                }]}
+                                height={400}
+                                title={`${selectedParameter.charAt(0).toUpperCase() + selectedParameter.slice(1)} vs Time`}
+                                fallbackMessage="Chart data is being processed. Try adjusting simulation parameters if this persists."
+                            />
                         )}
                     </Box>
 
@@ -377,13 +387,8 @@ const ShortCircuitSimulation = ({ busbarData, onSimulationComplete }) => {
     );
 };
 
-ShortCircuitSimulation.propTypes = {
-    busbarData: PropTypes.object,
-    onSimulationComplete: PropTypes.func
-};
-
+// Default props
 ShortCircuitSimulation.defaultProps = {
-    busbarData: null,
     onSimulationComplete: null
 };
 

@@ -1,8 +1,8 @@
 // src/components/FemFieldViewer.jsx
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { Typography, Box, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
+import { Typography, Box, FormControl, Select, MenuItem, InputLabel, Paper } from '@mui/material';
 
 const FemFieldViewer = ({ busbarData }) => {
     const [viewMode, setViewMode] = useState('magnetic'); // 'magnetic', 'electric', 'thermal'
@@ -11,6 +11,7 @@ const FemFieldViewer = ({ busbarData }) => {
     const rendererRef = useRef(null);
     const controlsRef = useRef(null);
     const animationIdRef = useRef(null);
+    const objectsToDisposeRef = useRef([]);
 
     useEffect(() => {
         if (!mountRef.current || !busbarData) return;
@@ -25,6 +26,8 @@ const FemFieldViewer = ({ busbarData }) => {
                 console.error("Error removing renderer:", error);
             }
         }
+
+        const cleanupObjects = [];
 
         // Create Three.js scene
         const scene = new THREE.Scene();
@@ -72,12 +75,14 @@ const FemFieldViewer = ({ busbarData }) => {
             scaledHeight,
             scaledLength
         );
+        cleanupObjects.push(busbarGeometry);
 
         const busbarMaterial = new THREE.MeshStandardMaterial({
             color: 0x888888,
             metalness: 0.7,
             roughness: 0.3
         });
+        cleanupObjects.push(busbarMaterial);
 
         const busbar = new THREE.Mesh(busbarGeometry, busbarMaterial);
         busbar.castShadow = true;
@@ -98,25 +103,25 @@ const FemFieldViewer = ({ busbarData }) => {
         camera.lookAt(busbar.position);
         controls.update();
 
-        // Create list of disposable objects
-        const disposables = [busbarGeometry, busbarMaterial];
-
         // Add field visualization based on view mode
         switch (viewMode) {
             case 'magnetic':
-                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, cleanupObjects);
                 break;
             case 'electric':
-                addElectricFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                addElectricFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, cleanupObjects);
                 break;
             case 'thermal':
-                addThermalFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                addThermalFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, cleanupObjects);
                 break;
             default:
-                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, disposables);
+                addMagneticFieldVisualization(scene, busbar, scaledWidth, scaledHeight, scaledLength, busbarData, cleanupObjects);
         }
 
-        // Animation loop with custom updates
+        // Store cleanup objects
+        objectsToDisposeRef.current = cleanupObjects;
+
+        // Animation loop
         const animate = (time) => {
             animationIdRef.current = requestAnimationFrame(animate);
 
@@ -151,42 +156,41 @@ const FemFieldViewer = ({ busbarData }) => {
 
             if (animationIdRef.current) {
                 cancelAnimationFrame(animationIdRef.current);
+                animationIdRef.current = null;
             }
 
+            // Dispose of all created objects
+            objectsToDisposeRef.current.forEach(item => {
+                if (item && typeof item.dispose === 'function') {
+                    item.dispose();
+                }
+            });
+            objectsToDisposeRef.current = [];
+
+            if (controlsRef.current) {
+                controlsRef.current.dispose();
+                controlsRef.current = null;
+            }
+
+            // Clean up renderer
             if (rendererRef.current && mountRef.current) {
                 try {
                     if (mountRef.current.contains(rendererRef.current.domElement)) {
                         mountRef.current.removeChild(rendererRef.current.domElement);
                     }
+                    rendererRef.current.dispose();
+                    rendererRef.current = null;
                 } catch (error) {
                     console.error("Error removing renderer:", error);
                 }
             }
 
-            if (controlsRef.current) {
-                controlsRef.current.dispose();
-            }
-
-            // Dispose of all created objects
-            disposables.forEach(item => {
-                if (item && typeof item.dispose === 'function') {
-                    item.dispose();
-                }
-            });
-
+            // Clear scene
             if (sceneRef.current) {
-                sceneRef.current.traverse((object) => {
-                    if (object.geometry) object.geometry.dispose();
-                    if (object.material) {
-                        if (Array.isArray(object.material)) {
-                            object.material.forEach(mat => mat.dispose());
-                        } else {
-                            object.material.dispose();
-                        }
-                    }
-                });
-
-                sceneRef.current.clear();
+                while (sceneRef.current.children.length > 0) {
+                    sceneRef.current.remove(sceneRef.current.children[0]);
+                }
+                sceneRef.current = null;
             }
         };
     }, [busbarData, viewMode]);
@@ -483,7 +487,7 @@ const FemFieldViewer = ({ busbarData }) => {
     };
 
     return (
-        <Box sx={{ mt: 4 }}>
+        <Paper elevation={3} sx={{ mt: 4, p: 3 }}>
             <Typography variant="h6" gutterBottom>
                 Field Visualization
             </Typography>
@@ -520,7 +524,7 @@ const FemFieldViewer = ({ busbarData }) => {
                 {viewMode === 'thermal' &&
                     'Thermal field visualization showing temperature distribution. Use mouse to rotate and zoom.'}
             </Typography>
-        </Box>
+        </Paper>
     );
 };
 

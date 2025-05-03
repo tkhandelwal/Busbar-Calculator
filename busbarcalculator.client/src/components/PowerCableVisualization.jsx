@@ -1,166 +1,177 @@
 // src/components/PowerCableVisualization.jsx
 import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { Typography } from '@mui/material';
+import { Typography, Box, Paper } from '@mui/material';
 
 const PowerCableVisualization = ({ cableData, results }) => {
-    const mountRef = useRef(null);
+    const canvasRef = useRef(null);
     const animationFrameRef = useRef(null);
-    const rendererRef = useRef(null);
-    const sceneRef = useRef(null);
 
     useEffect(() => {
-        if (!mountRef.current || !cableData || !results || !results.suitableCables || !results.suitableCables.length) {
+        if (!canvasRef.current || !results || !results.suitableCables || !results.suitableCables.length) {
             return;
         }
 
-        // Clean up any previous instances
-        if (rendererRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
-            mountRef.current.removeChild(rendererRef.current.domElement);
-        }
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const cableSize = parseFloat(results.suitableCables[0].size);
 
-        // Create scene
-        const scene = new THREE.Scene();
-        sceneRef.current = scene;
-        scene.background = new THREE.Color(0x222222);
+        // Set canvas dimensions
+        canvas.width = 600;
+        canvas.height = 300;
 
-        // Create camera
-        const camera = new THREE.PerspectiveCamera(
-            75,
-            mountRef.current.clientWidth / mountRef.current.clientHeight,
-            0.1,
-            1000
-        );
-        camera.position.set(0, 5, 10);
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Create renderer
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        rendererRef.current = renderer;
-        renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-        renderer.shadowMap.enabled = true;
-        mountRef.current.appendChild(renderer.domElement);
+        // Draw cable cross-section
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        let radius = Math.sqrt(cableSize / Math.PI) * 10; // Scale for visibility
 
-        // Add orbit controls
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
+        // Limit radius to a reasonable size
+        radius = Math.min(radius, 100);
+        radius = Math.max(radius, 20);
 
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
+        // Draw outer jacket
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 10, 0, 2 * Math.PI);
+        ctx.fillStyle = '#333333';
+        ctx.fill();
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 7.5);
-        directionalLight.castShadow = true;
-        scene.add(directionalLight);
-
-        // Create cable visualization
-        const cable = results.suitableCables[0];
-        const cableSize = cable.size;
-        const cableRadius = Math.sqrt(cableSize / Math.PI);
-
-        // Cable conductor
-        const cableMaterial = new THREE.MeshStandardMaterial({
-            color: cableData.cableType === 'copper' ? 0xcd7f32 : 0xD3D3D3,
-            metalness: 0.8,
-            roughness: 0.2
-        });
-
-        const cableGeometry = new THREE.CylinderGeometry(cableRadius / 5, cableRadius / 5, 10, 32);
-        const cableMesh = new THREE.Mesh(cableGeometry, cableMaterial);
-        cableMesh.rotation.x = Math.PI / 2;
-        scene.add(cableMesh);
-
-        // Cable insulation
+        // Draw insulation
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
         const insulationColor =
-            cableData.insulation === 'pvc' ? 0x888888 :
-                cableData.insulation === 'xlpe' ? 0x444444 :
-                    0x666666;
+            cableData.insulation === 'pvc' ? '#888888' :
+                cableData.insulation === 'xlpe' ? '#444444' : '#666666';
+        ctx.fillStyle = insulationColor;
+        ctx.fill();
 
-        const insulationMaterial = new THREE.MeshStandardMaterial({
-            color: insulationColor,
-            transparent: true,
-            opacity: 0.8,
-            metalness: 0.1,
-            roughness: 0.9
-        });
+        // Draw conductor
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = cableData.cableType === 'copper' ? '#cd7f32' : '#D3D3D3';
+        ctx.fill();
 
-        const insulationGeometry = new THREE.CylinderGeometry(cableRadius / 3, cableRadius / 3, 10, 32);
-        const insulationMesh = new THREE.Mesh(insulationGeometry, insulationMaterial);
-        insulationMesh.rotation.x = Math.PI / 2;
-        scene.add(insulationMesh);
+        // Add text for cable size
+        ctx.font = '16px Arial';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${cableSize} mm²`, centerX, centerY + radius + 30);
 
-        // Add a floor grid for reference
-        const gridHelper = new THREE.GridHelper(20, 20);
-        scene.add(gridHelper);
+        // Add text for cable type
+        ctx.font = '14px Arial';
+        ctx.fillText(`${cableData.cableType.toUpperCase()} with ${cableData.insulation.toUpperCase()} insulation`,
+            centerX, centerY - radius - 20);
 
-        // Animation loop
-        const animate = () => {
-            animationFrameRef.current = requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        };
+        // Add side view - rectangular section
+        const sideViewX = 50;
+        const sideViewY = centerY;
+        const sideViewWidth = 100;
+        const sideViewHeight = radius * 2;
 
-        animate();
+        // Outer jacket
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(sideViewX - 10, sideViewY - sideViewHeight / 2 - 10,
+            sideViewWidth + 20, sideViewHeight + 20);
 
-        // Handle resize
-        const handleResize = () => {
-            if (!mountRef.current) return;
-            const width = mountRef.current.clientWidth;
-            const height = mountRef.current.clientHeight;
-            camera.aspect = width / height;
-            camera.updateProjectionMatrix();
-            renderer.setSize(width, height);
-        };
+        // Insulation
+        ctx.fillStyle = insulationColor;
+        ctx.fillRect(sideViewX - 5, sideViewY - sideViewHeight / 2 - 5,
+            sideViewWidth + 10, sideViewHeight + 10);
 
-        window.addEventListener('resize', handleResize);
+        // Conductor
+        ctx.fillStyle = cableData.cableType === 'copper' ? '#cd7f32' : '#D3D3D3';
+        ctx.fillRect(sideViewX, sideViewY - sideViewHeight / 2,
+            sideViewWidth, sideViewHeight);
 
-        // Cleanup function
+        // Label the side view
+        ctx.fillStyle = 'white';
+        ctx.fillText('Side View', sideViewX + sideViewWidth / 2, sideViewY + sideViewHeight / 2 + 30);
+
+        // Add legend
+        const legendX = canvas.width - 150;
+        const legendY = 50;
+        const circleRadius = 10;
+
+        // Conductor
+        ctx.beginPath();
+        ctx.arc(legendX, legendY, circleRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = cableData.cableType === 'copper' ? '#cd7f32' : '#D3D3D3';
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'left';
+        ctx.fillText('Conductor', legendX + 20, legendY + 5);
+
+        // Insulation
+        ctx.beginPath();
+        ctx.arc(legendX, legendY + 30, circleRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = insulationColor;
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText('Insulation', legendX + 20, legendY + 35);
+
+        // Jacket
+        ctx.beginPath();
+        ctx.arc(legendX, legendY + 60, circleRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#333333';
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText('Jacket', legendX + 20, legendY + 65);
+
+        // Add ampacity information
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.font = '16px Arial bold';
+        ctx.fillText(`Ampacity: ${results.suitableCables[0].ampacity} A`, centerX, canvas.height - 30);
+
         return () => {
-            window.removeEventListener('resize', handleResize);
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
-            }
-
-            // Properly dispose of Three.js resources
-            if (sceneRef.current) {
-                sceneRef.current.traverse(object => {
-                    if (object.geometry) object.geometry.dispose();
-                    if (object.material) {
-                        if (Array.isArray(object.material)) {
-                            object.material.forEach(material => material.dispose());
-                        } else {
-                            object.material.dispose();
-                        }
-                    }
-                });
-            }
-
-            if (rendererRef.current) {
-                rendererRef.current.dispose();
-                if (mountRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
-                    mountRef.current.removeChild(rendererRef.current.domElement);
-                }
             }
         };
     }, [cableData, results]);
 
     if (!cableData || !results || !results.suitableCables || !results.suitableCables.length) {
-        return null;
+        return (
+            <Paper elevation={2} sx={{ p: 2, my: 3, bgcolor: '#f5f5f5' }}>
+                <Typography variant="body1" align="center">
+                    No cable data available for visualization
+                </Typography>
+            </Paper>
+        );
     }
 
     return (
-        <div
-            ref={mountRef}
-            style={{
-                width: '100%',
-                height: '300px',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                marginTop: '20px',
-                marginBottom: '20px'
-            }}
-        />
+        <Box sx={{ mt: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+                Cable Visualization
+            </Typography>
+            <Paper
+                elevation={3}
+                sx={{
+                    p: 1,
+                    bgcolor: '#333',
+                    borderRadius: 2,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden'
+                }}
+            >
+                <canvas
+                    ref={canvasRef}
+                    width={600}
+                    height={300}
+                    style={{
+                        maxWidth: '100%',
+                        height: 'auto'
+                    }}
+                />
+            </Paper>
+            <Typography variant="caption" align="center" sx={{ display: 'block', mt: 1 }}>
+                Cross-section and side view of recommended {results.suitableCables[0].size} mm² {cableData.cableType} cable
+            </Typography>
+        </Box>
     );
 };
 
