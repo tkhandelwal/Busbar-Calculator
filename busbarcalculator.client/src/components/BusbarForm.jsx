@@ -108,9 +108,6 @@ const BusbarForm = ({ onResultsCalculated }) => {
     const onSubmit = async (data) => {
         setIsLoading(true);
         try {
-            // Prevent any default actions
-            event.preventDefault && event.preventDefault();
-
             console.log('Form submitted with data:', data);
             const results = await calculateBusbar(data);
             console.log('Received results:', results);
@@ -126,9 +123,6 @@ const BusbarForm = ({ onResultsCalculated }) => {
         } finally {
             setIsLoading(false);
         }
-
-        // Return false to prevent any default form submission
-        return false;
     };
 
 

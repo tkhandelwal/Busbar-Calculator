@@ -1,5 +1,5 @@
 // FemFieldViewer.jsx - New component for magnetic field visualization
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Typography, Box, FormControl, Select, MenuItem, InputLabel } from '@mui/material';
@@ -15,8 +15,15 @@ const FemFieldViewer = ({ busbarData }) => {
         if (!mountRef.current || !busbarData) return;
 
         // Clean up previous scene
-        if (rendererRef.current) {
-            mountRef.current.removeChild(rendererRef.current.domElement);
+        if (rendererRef.current && mountRef.current) {
+            try {
+                // Check if the renderer's DOM element is actually a child before removing
+                if (mountRef.current.contains(rendererRef.current.domElement)) {
+                    mountRef.current.removeChild(rendererRef.current.domElement);
+                }
+            } catch (error) {
+                console.log("Renderer cleanup skipped:", error.message);
+            }
         }
 
         // Create Three.js scene
@@ -131,7 +138,13 @@ const FemFieldViewer = ({ busbarData }) => {
             cancelAnimationFrame(animationId);
 
             if (rendererRef.current && mountRef.current) {
-                mountRef.current.removeChild(rendererRef.current.domElement);
+                try {
+                    if (mountRef.current.contains(rendererRef.current.domElement)) {
+                        mountRef.current.removeChild(rendererRef.current.domElement);
+                    }
+                } catch (error) {
+                    console.log("Renderer cleanup skipped:", error.message);
+                }
             }
 
             if (controlsRef.current) {
@@ -338,7 +351,7 @@ const FemFieldViewer = ({ busbarData }) => {
         scene.add(aura);
 
         // Add heat particles
-        const particleCount = 1000 * normalizedTemp;
+        const particleCount = Math.floor(1000 * normalizedTemp);
         const particleGeometry = new THREE.BufferGeometry();
         const particlePositions = [];
         const particleColors = [];
