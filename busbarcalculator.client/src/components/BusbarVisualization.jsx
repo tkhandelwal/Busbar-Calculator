@@ -2,6 +2,8 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { Typography } from '@mui/material';
+
 
 const BusbarVisualization = ({ busbarData }) => {
     const mountRef = useRef(null);

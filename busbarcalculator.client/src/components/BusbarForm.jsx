@@ -196,8 +196,11 @@ const BusbarForm = ({ onResultsCalculated }) => {
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
 
-                <form id="busbarForm" onSubmit={handleSubmit(onSubmit)} action="javascript:void(0);">
-
+                <form
+                    id="busbarForm"
+                    onSubmit={handleSubmit(onSubmit)}
+                    onReset={() => reset()}
+                >
 
                     <Grid container spacing={3}>
                         {/* Basic Parameters */}

@@ -2,10 +2,13 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { Typography } from '@mui/material';
 
 const PowerCableVisualization = ({ cableData, results }) => {
     const mountRef = useRef(null);
     const animationFrameRef = useRef(null);
+    const rendererRef = useRef(null);
+    const sceneRef = useRef(null);
 
     useEffect(() => {
         if (!mountRef.current || !cableData || !results || !results.suitableCables || !results.suitableCables.length) {
@@ -13,12 +16,13 @@ const PowerCableVisualization = ({ cableData, results }) => {
         }
 
         // Clean up any previous instances
-        while (mountRef.current.firstChild) {
-            mountRef.current.removeChild(mountRef.current.firstChild);
+        if (rendererRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
+            mountRef.current.removeChild(rendererRef.current.domElement);
         }
 
         // Create scene
         const scene = new THREE.Scene();
+        sceneRef.current = scene;
         scene.background = new THREE.Color(0x222222);
 
         // Create camera
@@ -32,6 +36,7 @@ const PowerCableVisualization = ({ cableData, results }) => {
 
         // Create renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
+        rendererRef.current = renderer;
         renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
         renderer.shadowMap.enabled = true;
         mountRef.current.appendChild(renderer.domElement);
@@ -117,21 +122,25 @@ const PowerCableVisualization = ({ cableData, results }) => {
                 cancelAnimationFrame(animationFrameRef.current);
             }
 
-            scene.traverse(object => {
-                if (object instanceof THREE.Mesh) {
-                    object.geometry.dispose();
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else if (object.material) {
-                        object.material.dispose();
+            // Properly dispose of Three.js resources
+            if (sceneRef.current) {
+                sceneRef.current.traverse(object => {
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(material => material.dispose());
+                        } else {
+                            object.material.dispose();
+                        }
                     }
+                });
+            }
+
+            if (rendererRef.current) {
+                rendererRef.current.dispose();
+                if (mountRef.current && mountRef.current.contains(rendererRef.current.domElement)) {
+                    mountRef.current.removeChild(rendererRef.current.domElement);
                 }
-            });
-
-            renderer.dispose();
-
-            if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
-                mountRef.current.removeChild(renderer.domElement);
             }
         };
     }, [cableData, results]);
