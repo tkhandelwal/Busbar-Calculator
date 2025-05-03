@@ -16,6 +16,13 @@ namespace BusbarCalculator.API.Models
         public int NumberOfBarsPerPhase { get; set; } = 1;
         public bool UseAdvancedCalculation { get; set; } = false;
         public string VoltageLevel { get; set; } = "LV"; // LV, MV, HV
+        public string SystemType { get; set; } = "SinglePhase"; // SinglePhase, ThreePhase
+        public string ConnectionType { get; set; } = "Delta"; // Delta, Star (for three-phase)
+        public double LineVoltage { get; set; } // For three-phase
+        public double PhaseVoltage { get; set; } // For three-phase
+        public double PowerFactor { get; set; } = 0.9;
+        public bool IsBalanced { get; set; } = true; // For three-phase
+        public Dictionary<string, double> PhaseCurrents { get; set; } = new Dictionary<string, double>(); // For unbalanced three-phase
     }
 
     public class BusbarResult

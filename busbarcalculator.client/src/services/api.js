@@ -177,3 +177,34 @@ export const getStandardConfigById = async (id) => {
         return MOCK_STANDARD_CONFIGS.find(config => config.id === id) || null;
     }
 };
+
+// Updated method in services/api.js
+export const generatePdfReport = async (resultData) => {
+    try {
+        const response = await axios.post(
+            `${API_URL}/busbar/generate-report`,
+            resultData,
+            { responseType: 'blob' } // Set response type to blob
+        );
+
+        // Create blob URL and open in new tab or trigger download
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+
+        // Option 1: Open in new tab
+        window.open(url, '_blank');
+
+        // Option 2: Trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'busbar-report.pdf');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        return url;
+    } catch (error) {
+        console.error('Error generating PDF report:', error);
+        throw error;
+    }
+};

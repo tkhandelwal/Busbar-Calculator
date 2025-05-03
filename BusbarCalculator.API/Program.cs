@@ -15,6 +15,7 @@ builder.Logging.AddDebug();
 
 // Add services to the container
 builder.Services.AddScoped<PdfReportService>();
+builder.Services.AddScoped<IShortCircuitService, ShortCircuitService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

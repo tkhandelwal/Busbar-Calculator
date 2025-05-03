@@ -125,6 +125,42 @@ namespace BusbarCalculator.API.Controllers
             }
         }
 
+        [HttpPost("simulate-short-circuit")]
+        public ActionResult<ShortCircuitSimulationResult> SimulateShortCircuit(
+    [FromBody] ShortCircuitSimulationRequest request)
+        {
+            _logger.LogInformation("Simulating short circuit for duration: {Duration}s",
+                request.Duration);
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state in short circuit simulation request");
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var result = _shortCircuitService.SimulateShortCircuit(
+                    request.BusbarInput,
+                    request.Duration,
+                    request.TimeSteps);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during short circuit simulation");
+                return StatusCode(500, new { error = "An error occurred during simulation", message = ex.Message });
+            }
+        }
+
+        public class ShortCircuitSimulationRequest
+        {
+            public BusbarInput BusbarInput { get; set; } = new BusbarInput();
+            public double Duration { get; set; } = 1.0;
+            public int TimeSteps { get; set; } = 100;
+        }
+
         [HttpPost("analyze-safety")]
         public ActionResult<SafetyAnalysisResult> AnalyzeSafety([FromBody] BusbarResult result)
         {
